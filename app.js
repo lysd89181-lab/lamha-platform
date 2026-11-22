@@ -1,11 +1,10 @@
 const st = { tab: 'shop', authMode: 'login', me: null, shop: { service: 'gift_cards', cats: null, cat: null, offers: null, q: '', arr: [], err: null }, sh: { link: '', cart: null, q: {}, quote: null, err: null }, wallet: null, walleterr: false, orders: null, orderserr: false, tickets: null, notifCount: 0, pendingOrder: null, lang: 'ar' };
-window.addEventListener("error", e => { console.warn(e.message); });
-api = async () => ({ items: [], offers: [], fields: [], balance_usd: 0, total: 0 }); auth = { login: async () => ({}), signup: async () => ({}), recover: async () => ({}), logout: async () => ({}) }; st.me = { email: "preview@lamha.ly", full_name: "Preview", phone: "", verified: "unverified", staff: true };
-const TABS = [['shop', 'الرئيسية', 'home'], ['shein', 'SHEIN', 'bag'], ['wallet', 'المحفظة', 'wallet'], ['orders', 'طلباتي', 'box'], ['acc', 'حسابي', 'user']];
+const TABS = [['shop', 'الرئيسية', 'home'], ['shein', 'SHEIN', 'bag'], ['wallet', 'المحفظة', 'wallet'], ['orders', 'طلباتي', 'orders'], ['acc', 'حسابي', 'user']];
 const SVC = { gift_cards: 'بطاقات الهدايا', top_ups: 'شحن الألعاب المباشر' };
 const VER = { unverified: 'غير موثق', pending: 'قيد المراجعة', verified: 'موثق', rejected: 'مرفوض' };
 const head = (bell = true) => `<div class="hd">${langBtn()}<img src="logo.png" alt="لمحة LAMHA" data-notr="1">${bell ? `<button data-a="notifs" aria-label="الإشعارات">${ic('bell')}</button>` : '<span style="width:32px"></span>'}</div>`;
 
+function authView() {
 function authView() {
   const m = st.authMode; const title = { login: 'تسجيل الدخول', signup: 'إنشاء حساب', forgot: 'استعادة كلمة المرور' }[m];
   return `${head(false)}<div class="pg"><div class="top" style="padding:0 0 12px">${title}</div>
