@@ -5,7 +5,7 @@ const VER = { unverified: 'غير موثق', pending: 'قيد المراجعة',
 const head = (bell = true) => `<div class="hd">${langBtn()}<img src="logo.png" alt="لمحة LAMHA" data-notr="1">${bell ? `<button data-a="notifs" aria-label="الإشعارات">${ic('bell')}</button>` : '<span style="width:32px"></span>'}</div>`;
 
 function authView() {
-function authView() {
+
   const m = st.authMode; const title = { login: 'تسجيل الدخول', signup: 'إنشاء حساب', forgot: 'استعادة كلمة المرور' }[m];
   return `${head(false)}<div class="pg"><div class="top" style="padding:0 0 12px">${title}</div>
   <label class="fld"><span>البريد الإلكتروني</span><input id="em" type="email" autocomplete="email" dir="ltr"></label>
