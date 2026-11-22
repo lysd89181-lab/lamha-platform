@@ -1,1 +1,0 @@
-# lamha-platform
