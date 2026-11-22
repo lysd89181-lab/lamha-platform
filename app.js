@@ -1,6 +1,6 @@
 const st = { tab: 'shop', authMode: 'login', me: null, shop: { service: 'gift_cards', cats: null, cat: null, offers: null, q: '', err: '' }, sh: { link: '', cart: null, items: [], q: {}, quote: null, err: '' }, wallet: null, orders: null, tickets: null };
 const api = async () => ({ items: [], offers: [], fields: [], balance_usd: 0, total: 0 }); const auth = { login: async () => ({}), signup: async () => ({}), recover: async () => ({}), logout: async () => ({}) }; st.me = { email: "preview@lamha.ly", full_name: "Preview", phone: "", verified: "unverified", staff: true };
-const api = async () => ({ items: [], offers: [], fields: [], balance_usd: 0, total: 0 }); const auth = { login: async () => ({}), signup: async () => ({}), recover: async () => ({}), logout: async () => ({}) }; st.me = { email: "preview@lamha.ly", full_name: "Preview", phone: "", verified: "unverified", staff: true };
+window.addEventListener("error",e=>{console.warn(e.message)}); const api=async()=>({items:[],offers:[],fields:[],balance_usd:0,total:0}); const auth={login:async()=>({}),signup:async()=>({}),recover:async()=>({}),logout:async()=>({})};
 const TABS = [['shop', 'الرئيسية', 'home'], ['shein', 'SHEIN', 'bag'], ['wallet', 'المحفظة', 'wallet'], ['orders', 'طلباتي', 'box'], ['acc', 'حسابي', 'user']];
 const SVC = { gift_cards: 'بطاقات الهدايا', top_ups: 'شحن الألعاب المباشر' };
 const VER = { unverified: 'غير موثق', pending: 'قيد المراجعة', verified: 'موثق', rejected: 'مرفوض' };
