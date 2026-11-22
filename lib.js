@@ -1,8 +1,12 @@
-/* LAMHA shared client lib: session, API, helpers. No secrets here: only the PUBLIC Supabase URL/publishable key from /api/config. */
+/* LAMHA shared client lib: session, API, helpers. No secrets here: only the PUBLIC Supabase URL/publishable key. */
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const usd = (n) => '$' + Number(n || 0).toFixed(2);
 const API_BASE = 'https://Lamha.ysymazn58.workers.dev/api';
+const FALLBACK_CFG = {
+  supabase_url: 'https://lexyiuglleloqmbsoajb.supabase.co',
+  publishable_key: 'sb_publishable_1bA5iviTIIwVinR1wwzCOA_7G0f6Ro0',
+};
 const P = { gift: 'M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z', game: 'M6 12h4M8 10v4M15 13h.01M18 11h.01M17 6H7a5 5 0 0 0-5 5v3a3 3 0 0 0 5.5 1.7L9 14h6l1.5 1.7A3 3 0 0 0 22 14v-3a5 5 0 0 0-5-5z', home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z', bag: 'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0', wallet: 'M20 7H5a2 2 0 0 1 0-4h13v4zM3 5v14a2 2 0 0 0 2 2h15V7M16 14h.01', box: 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8', user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8', bell: 'M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10 21h4', x: 'M18 6 6 18M6 6l12 12' };
 const ic = (n) => `<svg class="i" viewBox="0 0 24 24"><path d="${P[n]}"/></svg>`;
 const ERR = {
@@ -28,12 +32,17 @@ const closeM = () => { const ov = $('#ov'); if (ov) ov.innerHTML = ''; };
 let CFG = null; let S = null; try { S = JSON.parse(localStorage.getItem('lamha_s') || 'null'); } catch { S = null; }
 const cfg = async () => {
   if (CFG) return CFG;
-  const res = await fetchT(API_BASE + '/config');
-  const data = await res.json().catch(() => null);
-  if (!res.ok || !data || !data.supabase_url || !data.publishable_key) {
-    throw new Error('تعذّر جلب إعدادات الاتصال من الخادم');
+  try {
+    const res = await fetchT(API_BASE + '/config', {}, 6000);
+    const data = await res.json().catch(() => null);
+    if (res.ok && data && data.supabase_url && data.publishable_key) {
+      CFG = data;
+      return CFG;
+    }
+  } catch {
+    /* fallback when cross-origin fetch to worker config is blocked */
   }
-  CFG = data;
+  CFG = FALLBACK_CFG;
   return CFG;
 };
 // every network call has a timeout, so a loader can never hang forever
