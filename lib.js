@@ -17,8 +17,11 @@ const ERR = {
   shein_expired: 'رابط السلة منتهي', shein_bad_link: 'رابط SHEIN غير صالح', shein_risk: 'SHEIN رفضت الطلب مؤقتاً، حاول بعد دقائق', shein_upstream: 'تعذّر قراءة السلة من SHEIN', shein_network: 'تعذّر الوصول إلى SHEIN',
   item_not_orderable: 'منتج غير متاح للطلب', item_sold_out: 'منتج نفد', item_no_usd_price: 'لا يتوفر سعر بالدولار لهذا المنتج', bad_quantity: 'الكمية غير صالحة (1-100)', no_items: 'اختر كمية لمنتج واحد على الأقل', item_not_in_cart: 'المنتج لم يعد في السلة', server_error: 'خطأ في الخادم', offer_gone: 'العرض لم يعد متاحاً', stock_short: 'الكمية المتوفرة غير كافية',
 };
-const errMsg = (e) => ERR[e?.error] || ERR[e?.message] || (e?.error ? 'تعذّر التنفيذ: ' + e.error : e?.message || 'خطأ غير متوقع');
-function toast(m, bad) { const t = $('#toast'); if (!t) return; t.textContent = m; t.className = bad ? 'bad' : ''; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => (t.style.display = 'none'), 3200); }
+const errMsg = (e) => {
+  if (e?.debugDetail) return e.debugDetail;
+  return ERR[e?.error] || ERR[e?.message] || (e?.error ? 'تعذّر التنفيذ: ' + e.error : e?.message || 'خطأ غير متوقع');
+};
+function toast(m, bad) { const t = $('#toast'); if (!t) return; t.textContent = m; t.className = bad ? 'bad' : ''; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => (t.style.display = 'none'), 4500); }
 function modal(h) { const ov = $('#ov'); if (ov) ov.innerHTML = `<div class="ov" data-a="ovclose"><div class="md">${h}</div></div>`; }
 const closeM = () => { const ov = $('#ov'); if (ov) ov.innerHTML = ''; };
 
@@ -36,14 +39,34 @@ const cfg = async () => {
 // every network call has a timeout, so a loader can never hang forever
 async function fetchT(url, init = {}, ms = 20000) {
   const ac = new AbortController(); const t = setTimeout(() => ac.abort(), ms);
-  try { return await fetch(url, { ...init, signal: ac.signal }); }
-  catch (e) { throw { status: 0, error: e?.name === 'AbortError' ? 'timeout' : 'network' }; }
-  finally { clearTimeout(t); }
+  try {
+    return await fetch(url, { ...init, signal: ac.signal });
+  } catch (e) {
+    const isTimeout = e?.name === 'AbortError';
+    throw {
+      status: 0,
+      error: isTimeout ? 'timeout' : 'network',
+      debugDetail: (isTimeout ? 'انتهت المهلة عند: ' : 'فشل الاتصال عند: ') + url + ' — ' + (e?.message || e?.name || 'FetchError'),
+    };
+  } finally {
+    clearTimeout(t);
+  }
 }
 function setSession(d) { S = d && d.access_token ? { at: d.access_token, rt: d.refresh_token, exp: Date.now() + ((d.expires_in || 3600) - 60) * 1000 } : null; try { S ? localStorage.setItem('lamha_s', JSON.stringify(S)) : localStorage.removeItem('lamha_s'); } catch { /* private mode */ } }
 async function authCall(path, body, token) {
-  const c = await cfg(); const r = await fetchT(`${c.supabase_url}/auth/v1/${path}`, { method: 'POST', headers: { apikey: c.publishable_key, 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify(body) });
-  const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.msg || d.error_description || d.message || 'تعذّر تنفيذ العملية'); return d;
+  const c = await cfg();
+  const r = await fetchT(`${c.supabase_url}/auth/v1/${path}`, {
+    method: 'POST',
+    headers: {
+      apikey: c.publishable_key,
+      'content-type': 'application/json',
+      ...(token ? { authorization: 'Bearer ' + token } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.msg || d.error_description || d.message || d.error || ('HTTP ' + r.status));
+  return d;
 }
 const auth = {
   signup: (email, password) => authCall('signup', { email, password }),
@@ -54,10 +77,18 @@ const auth = {
 async function refresh() { if (!S) return; try { setSession(await authCall('token?grant_type=refresh_token', { refresh_token: S.rt })); } catch { setSession(null); } }
 async function api(path, { method = 'GET', body, raw, type } = {}) {
   if (S && Date.now() > S.exp) await refresh();
-  const r = await fetchT(API_BASE + path, { method, headers: { ...(S ? { authorization: 'Bearer ' + S.at } : {}), ...(body && !raw ? { 'content-type': 'application/json' } : {}), ...(type ? { 'content-type': type } : {}) }, body: raw || (body ? JSON.stringify(body) : undefined) });
+  const r = await fetchT(API_BASE + path, {
+    method,
+    headers: {
+      ...(S ? { authorization: 'Bearer ' + S.at } : {}),
+      ...(body && !raw ? { 'content-type': 'application/json' } : {}),
+      ...(type ? { 'content-type': type } : {}),
+    },
+    body: raw || (body ? JSON.stringify(body) : undefined),
+  });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) {
-    if (r.status === 401 && S) { setSession(null); document.dispatchEvent(new Event('lamha:expired')); throw { status: 401, error: 'session_expired' }; } // expired/revoked session: back to sign-in, never a stuck screen
+    if (r.status === 401 && S) { setSession(null); document.dispatchEvent(new Event('lamha:expired')); throw { status: 401, error: 'session_expired' }; }
     throw { status: r.status, error: d.error || 'server_error' };
   }
   return d;
