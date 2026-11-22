@@ -144,3 +144,68 @@ document.addEventListener('lamha:expired', () => { st.me = null; st.wallet = nul
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-a]'); if (b && H[b.dataset.a]) H[b.dataset.a](b, e); });
 let qt; document.addEventListener('input', (e) => { if (e.target.id === 'sq') { st.shop.q = e.target.value; clearTimeout(qt); qt = setTimeout(loadCats, 450); } });
 (async () => { if (S) { await loadMe(); if (!st.me) setSession(null); } paint(); if (S) go(location.search.includes('topup=return') ? 'wallet' : 'shop'); })();
+/* AUTO_LATEST_VERSION_PREVIEW */
+(function () {
+  const BUILD_KEY = 'lamha_preview_build_v1';
+  const REPO_API = 'https://api.github.com/repos/lysd89181-lab/lamha-platform/commits/main';
+
+  async function refreshToLatest(forceReload = false) {
+    try {
+      const res = await fetch(`${REPO_API}?t=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const latestSha = (data && data.sha) ? String(data.sha).slice(0, 7) : '';
+      if (!latestSha) return;
+
+      const savedSha = localStorage.getItem(BUILD_KEY);
+      if (savedSha && savedSha !== latestSha) {
+        localStorage.setItem(BUILD_KEY, latestSha);
+        const url = new URL(window.location.href);
+        url.searchParams.set('v', latestSha);
+        window.location.replace(url.toString());
+        return;
+      }
+
+      localStorage.setItem(BUILD_KEY, latestSha);
+
+      if (forceReload) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('v', `${latestSha}_${Date.now()}`);
+        window.location.replace(url.toString());
+      }
+    } catch (_) {}
+  }
+
+  function mountLatestButton() {
+    if (document.getElementById('lamha-force-latest-btn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'lamha-force-latest-btn';
+    btn.type = 'button';
+    btn.textContent = 'تحديث لآخر نسخة';
+    btn.style.cssText = 'position:fixed;bottom:14px;left:14px;z-index:99999;padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.22);background:#0f172a;color:#fff;font-size:12px;font-family:inherit;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35)';
+    btn.onclick = async () => {
+      btn.textContent = 'جاري التحديث...';
+      if ('caches' in window) {
+        try {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        } catch (_) {}
+      }
+      await refreshToLatest(true);
+      const u = new URL(window.location.href);
+      u.searchParams.set('t', Date.now());
+      window.location.replace(u.toString());
+    };
+    document.body.appendChild(btn);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      mountLatestButton();
+      refreshToLatest(false);
+    });
+  } else {
+    mountLatestButton();
+    refreshToLatest(false);
+  }
+})();
