@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>فحص منصة لمحة | Debug</title>
+<style>
+  body { background:#0b172a; color:#f8fafc; font-family:system-ui,sans-serif; padding:16px; margin:0; line-height:1.6; }
+  h2 { margin:0 0 12px; color:#38bdf8; font-size:18px; }
+  .box { background:#0f1e36; border:1px solid #1e293b; border-radius:12px; padding:12px; margin-bottom:12px; font-size:13px; }
+  .ok { color:#4ade80; font-weight:bold; }
+  .err { color:#f87171; font-weight:bold; }
+  .warn { color:#fbbf24; font-weight:bold; }
+  pre { background:#020617; padding:10px; border-radius:8px; overflow-x:auto; color:#fca5a5; font-size:12px; white-space:pre-wrap; margin:6px 0 0; }
+  button { background:#2563eb; color:#fff; border:none; padding:10px 16px; border-radius:10px; font-weight:bold; cursor:pointer; width:100%; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<h2>تقرير فحص ملفات وأخطاء لمحة</h2>
+<button onclick="location.href='debug.html?t='+Date.now()">إعادة الفحص الآن (بدون كاش)</button>
+<div id="log"></div>
+
+<div id="app" style="display:none"></div>
+<div id="nav" style="display:none"></div>
+<div id="toast" style="display:none"></div>
+<div id="ov" style="display:none"></div>
+
+<script>
+const logEl = document.getElementById('log');
+function addLog(title, status, details = '') {
+  const cls = status === 'OK' ? 'ok' : (status === 'WARN' ? 'warn' : 'err');
+  logEl.innerHTML += `<div class="box"><div>${title}: <span class="${cls}">${status}</span></div>${details ? `<pre>${details}</pre>` : ''}</div>`;
+}
+
+window.addEventListener('error', e => {
+  addLog('خطأ JavaScript أثناء التشغيل', 'ERROR', `${e.message}\nالملف: ${e.filename}\nالسطر: ${e.lineno} | العمود: ${e.colno}`);
+});
+
+window.addEventListener('unhandledrejection', e => {
+  addLog('خطأ Promise / API غير معالج', 'ERROR', String(e.reason && (e.reason.stack || e.reason.message || e.reason)));
+});
+
+async function checkFiles() {
+  const files = ['index.html', 'lib.js', 'i18n.js', 'app.js', 'logo.png'];
+  for (const f of files) {
+    try {
+      const r = await fetch(f + '?t=' + Date.now(), { cache: 'no-store' });
+      if (r.ok) {
+        const txt = await r.text();
+        addLog(`فحص وجود ملف ${f}`, 'OK', `الحجم: ${txt.length} بايت`);
+      } else {
+        addLog(`فحص وجود ملف ${f}`, 'MISSING', `كود الحالة: ${r.status}`);
+      }
+    } catch (err) {
+      addLog(`فحص وجود ملف ${f}`, 'ERROR', err.message);
+    }
+  }
+}
+
+checkFiles();
+</script>
+
+<script src="lib.js"></script>
+<script>
+addLog('فحص المتغيرات بعد lib.js', 'OK', `api: ${typeof api} | auth: ${typeof auth} | paint: ${typeof paint}`);
+</script>
+<script src="i18n.js"></script>
+<script>
+addLog('فحص المتغيرات بعد i18n.js', 'OK', `langBtn: ${typeof langBtn}`);
+</script>
+<script src="app.js"></script>
+<script>
+setTimeout(() => {
+  const appHtml = document.getElementById('app').innerHTML.trim();
+  if (appHtml) {
+    addLog('نتيجة رسم الواجهة داخل #app', 'OK', 'الواجهة اشتغلت ورسمت عناصر بنجاح! طول المحتوى: ' + appHtml.length);
+  } else {
+    addLog('نتيجة رسم الواجهة داخل #app', 'EMPTY', 'عنصر #app مازال فارغاً (سبب الشاشة البيضاء)');
+  }
+}, 1500);
+</script>
+</body>
+</html>
