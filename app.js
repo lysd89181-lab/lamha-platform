@@ -3,7 +3,7 @@ const st = { tab: 'shop', authMode: 'login', me: null, shop: { service: 'gift_ca
 const TABS = [['shop', 'الرئيسية', 'home'], ['shein', 'SHEIN', 'bag'], ['wallet', 'المحفظة', 'wallet'], ['orders', 'طلباتي', 'box'], ['acc', 'حسابي', 'user']];
 const SVC = { gift_cards: 'بطاقات الهدايا', top_ups: 'شحن الألعاب المباشر' };
 const VER = { unverified: 'غير موثق', pending: 'قيد المراجعة', verified: 'موثق', rejected: 'مرفوض' };
-const head = (bell = true) => `<div class="hd">${bell ? `<button data-a="notifs" aria-label="الإشعارات">${ic('bell')}</button>` : '<span style="width:32px"></span>'}<img src="logo.png" alt="لمحة LAMHA" data-notr="1">${langBtn()}</div>`;
+const head = (bell = true) => `<div class="hd">${langBtn()}<img src="logo.png" alt="لمحة LAMHA" data-notr="1">${bell ? `<button data-a="notifs" aria-label="الإشعارات">${ic('bell')}</button>` : '<span style="width:32px"></span>'}</div>`;
 
 function authView() {
   const m = st.authMode; const title = { login: 'تسجيل الدخول', signup: 'إنشاء حساب', forgot: 'استعادة كلمة المرور' }[m];
@@ -22,7 +22,7 @@ function shopView() {
   const s = st.shop; let body = '';
   if (s.err) body = `<div class="note">${esc(s.err)}</div>`;
   else if (s.cat != null) body = `<button class="btn o s" data-a="catback">رجوع</button><div class="sec">العروض</div>` + (s.offers == null ? '<div class="empty">جارٍ التحميل…</div>' : s.offers.length ? s.offers.map((o) => `<div class="row"><div class="g"><b>${esc(o.name)}</b><div class="mut">${o.available ? (o.stock != null ? 'متوفر: ' + o.stock : 'متوفر') : 'نفد المخزون'}</div></div><div style="text-align:left"><b>${usd(o.price_usd)}</b><br><button class="btn s" data-a="buy" data-id="${esc(o.id)}" ${o.available ? '' : 'disabled'}>شراء</button></div></div>`).join('') : '<div class="empty">لا توجد باقات نشطة لهذه الفئة الآن.<br>جرّب فئة بديلة من نفس اللعبة (مثل manual أو reserve) بالرجوع للقائمة.</div>');
-  else body = s.cats == null ? '<div class="empty">جارٍ التحميل…</div>' : (s.cats.length ? (s.total > s.cats.length ? `<div class="mut" style="margin-bottom:8px">يُعرض ${s.cats.length} من ${s.total}. استعمل البحث للوصول لباقي التصنيفات.</div>` : '') + s.cats.map((c) => `<button class="row" style="width:100%;text-align:right" data-a="cat" data-id="${esc(c.id)}">${c.image ? `<img class="th" src="${esc(c.image)}" alt="" referrerpolicy="no-referrer" style="width:44px;height:44px">` : ''}<span class="g"><b>${esc(c.name)}</b></span></button>`).join('') : '<div class="empty">لا توجد نتائج</div>');
+  else body = s.cats == null ? '<div class="empty">جارٍ التحميل…</div>' : (s.cats.length ? (s.total > s.cats.length ? `<div class="mut" style="margin-bottom:8px">يُعرض ${s.cats.length} من ${s.total}. استعمل البحث للوصول لباقي التصنيفات.</div>` : '') + s.cats.map((c) => `<button class="row" style="width:100%;text-align:right" data-a="cat" data-id="${esc(c.id)}">${c.image ? `<img class="th" src="${esc(c.image)}" alt="" data-n="${esc(c.name)}" referrerpolicy="no-referrer" style="width:44px;height:44px">` : ''}<span class="g"><b>${esc(c.name)}</b></span></button>`).join('') : '<div class="empty">لا توجد نتائج</div>');
   const TILE = { gift_cards: 'gift', top_ups: 'game' };
   return `${head()}<div class="pg"><div class="ban"><b>اشحن رصيدك واستمتع بمشترياتك الرقمية!</b><button class="btn" data-a="tab" data-k="wallet">ابدأ الآن</button></div>
   <div class="sec" style="margin-top:0">أقسام المنتجات</div><div class="cats">${Object.entries(SVC).map(([k, n]) => `<button class="cat ${s.service === k ? 'on' : ''}" data-a="svc" data-k="${k}">${ic(TILE[k])}${n}</button>`).join('')}<button class="cat" data-a="tab" data-k="shein">${ic('bag')}SHEIN</button></div>
@@ -137,6 +137,7 @@ const H = {
   vup: (b) => guard(b, async () => { const f = $('#vf').files[0]; if (!f) return toast('اختر ملفاً', true); await api('/verification', { method: 'POST', raw: await f.arrayBuffer(), type: f.type }); toast('تم الإرسال للمراجعة'); loadAcc(); }),
   notifs: () => guard(null, async () => { const l = await api('/notifications'); modal(`<h3>الإشعارات<button data-a="close">${ic('x')}</button></h3>${l.length ? l.map((n) => `<div class="row"><div class="g"><b>${esc(n.title)}</b>${n.read ? '' : ' <span>•</span>'}<div class="mut"><span>${esc(n.body || '')}</span> · ${fmtDate(n.created_at)}</div></div></div>`).join('') : '<div class="empty">لا توجد إشعارات</div>'}`); api('/notifications', { method: 'POST' }).catch(() => {}); }),
 };
+document.addEventListener('error', (e) => { const i = e.target; if (i.tagName === 'IMG' && i.classList.contains('th')) { const d = document.createElement('div'); d.className = 'th fallback'; d.style.cssText = i.style.cssText; d.textContent = (i.dataset.n || '?').trim().charAt(0).toUpperCase(); i.replaceWith(d); } }, true);
 document.addEventListener('lamha:lang', () => { closeM(); paint(); });
 document.addEventListener('lamha:expired', () => { st.me = null; st.wallet = null; st.orders = null; closeM(); paint(); toast(tt('انتهت الجلسة، سجّل الدخول من جديد'), true); });
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-a]'); if (b && H[b.dataset.a]) H[b.dataset.a](b, e); });

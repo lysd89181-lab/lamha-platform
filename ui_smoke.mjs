@@ -16,7 +16,7 @@ const srv = http.createServer((q, r) => {
     if (P === '/api/config') return J(r, { supabase_url: 'http://localhost:' + srv.address().port + '/sb', publishable_key: 'pub' });
     if (P === '/sb/auth/v1/token') return J(r, { access_token: 't', refresh_token: 'r', expires_in: 3600 });
     if (P === '/api/me') return J(r, { id: 'u', email: 'a@b.c', confirmed: true, profile: { verification_status: 'unverified', full_name: 'Ali Salem', phone: '+218911234567' }, staff: { role: 'super_admin', permissions: [] } });
-    if (P === '/api/shop/categories') return u.searchParams.get('service') === 'top_ups' ? J(r, { total: 1, items: [{ id: 'arena_breakout', name: 'Arena Breakout', image: null }] }) : J(r, { error: 'provider_mapping_unconfirmed' }, 501);
+    if (P === '/api/shop/categories') return u.searchParams.get('service') === 'top_ups' ? J(r, { total: 1, items: [{ id: 'arena_breakout', name: 'Arena Breakout', image: 'http://localhost:' + srv.address().port + '/missing-logo.png' }] }) : J(r, { error: 'provider_mapping_unconfirmed' }, 501);
     if (P === '/api/shop/offers') return J(r, { offers: [{ id: '66_bonds', name: '66 Bonds', price_usd: 0.88, stock: null, min: 1, max: 100, available: true }], fields: [{ key: 'player_id', label: 'Player ID', required: true }], empty: false });
     if (P === '/api/wallet') return J(r, { balance: 12.5, transactions: [{ kind: 'deposit', amount: 12.5, balance_after: 12.5, created_at: now }, { kind: 'debit', amount: 1, balance_after: 11.5, created_at: now }, { kind: 'refund', amount: 1, balance_after: 12.5, created_at: now }] });
     if (P === '/api/orders') return J(r, [{ ...ORDER, status: 'completed' }, { ...ORDER, number: 22, status: 'failed' }]);
@@ -37,7 +37,7 @@ const base = 'http://localhost:' + srv.address().port; const errs = []; let fail
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
 const br = await chromium.launch();
 const newPage = async (lang) => { const ctx = await br.newContext({ viewport: { width: 390, height: 800 } }); const pg = await ctx.newPage(); if (lang) await pg.addInitScript((l) => localStorage.setItem('lamha_lang', l), lang);
-  pg.on('pageerror', (e) => errs.push(String(e))); pg.on('console', (m) => { if (m.type() === 'error' && !/fonts\.g|ERR_|Failed to load resource|Content Security Policy.*fonts/.test(m.text())) errs.push(m.text()); }); return pg; };
+  pg.on('pageerror', (e) => errs.push(String(e))); pg.on('console', (m) => { if (m.type() === 'error' && !/fonts\.g|ERR_|Failed to load resource/.test(m.text())) errs.push(m.text()); }); return pg; };
 // leftover Arabic letters in what the user sees (ignores the language button itself)
 const arabicLeft = (pg) => pg.evaluate(() => { const c = document.body.cloneNode(true); c.querySelectorAll('[data-notr],script,style').forEach((e) => e.remove()); return (c.innerText.match(/[^\n]*[\u0600-\u06FF][^\n]*/g) || []).slice(0, 5); });
 const settle = (pg) => pg.waitForFunction(() => !/Loading…|جارٍ التحميل/.test(document.body.innerText), null, { timeout: 5000 }).catch(() => {});
@@ -48,7 +48,12 @@ let pg = await newPage();
 await pg.goto(base + '/'); ok(await pg.locator('text=تسجيل الدخول').first().isVisible(), 'AR: login screen when signed out'); ok(await pg.evaluate(() => document.documentElement.dir) === 'rtl', 'AR: page is RTL');
 await login(pg); await pg.waitForSelector('text=اشحن رصيدك'); ok(true, 'AR: home banner + category tiles (as in the design)');
 await pg.waitForSelector('text=الكتالوج غير مفعّل', { timeout: 5000 }).catch(() => {}); ok((await pg.textContent('#app')).includes('الكتالوج غير مفعّل'), 'AR: gift-card catalog fails closed with a clear message');
-await pg.click('[data-a=svc][data-k=top_ups]'); await pg.waitForSelector('text=Arena Breakout'); await pg.click('[data-a=cat]'); await pg.waitForSelector('text=66 Bonds'); await pg.click('[data-a=buy]'); await pg.waitForSelector('.pf');
+await pg.click('[data-a=svc][data-k=top_ups]'); await pg.waitForSelector('text=Arena Breakout'); await pg.waitForFunction(() => !document.querySelector('img.th'), null, { timeout: 5000 }).catch(() => {});
+ok(await pg.locator('img.th').count() === 0 && await pg.locator('.th.fallback').count() === 1, 'AR: broken provider image is replaced by a neutral tile (no empty box)');
+const rw = await pg.locator('[data-a=cat]').first().boundingBox(); ok(rw.width >= 330, 'AR: category rows are full width (inline styles are allowed by the CSP)');
+const iw = await pg.locator('.th').first().boundingBox(); ok(iw.width <= 64, 'AR: thumbnails keep their size');
+await pg.screenshot({ path: '/tmp/home.png' });
+await pg.click('[data-a=cat]'); await pg.waitForSelector('text=66 Bonds'); await pg.click('[data-a=buy]'); await pg.waitForSelector('.pf');
 ok(await pg.locator('text=Player ID').count() > 0, 'AR: player-ID form generated from provider fields'); await pg.click('[data-a=close]');
 await pg.click('[data-k=shein]'); await pg.fill('#shl', 'https://onelink.shein.com/x'); await pg.click('[data-a=shcart]'); await pg.waitForSelector('text=Red Dress');
 ok((await pg.textContent('#app')).includes('مصدر الخصم غير مؤكد'), 'AR: SHEIN discount source marked unconfirmed'); await pg.click('[data-a=qp]'); await pg.click('[data-a=qp]'); await pg.click('[data-a=shquote]'); await pg.waitForSelector('text=العربون المطلوب الآن'); ok((await pg.textContent('#app')).includes('$8.50'), 'AR: deposit/remaining come from the server quote');
