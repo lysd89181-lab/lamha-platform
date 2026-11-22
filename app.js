@@ -1,6 +1,6 @@
-const st = { tab: 'shop', authMode: 'login', me: null, shop: { service: 'gift_cards', cats: null, cat: null, offers: null, q: '', err: '' }, sh: { link: '', cart: null, items: [], q: {}, quote: null, err: '' }, wallet: null, orders: null, tickets: null };
-const api = async () => ({ items: [], offers: [], fields: [], balance_usd: 0, total: 0 }); const auth = { login: async () => ({}), signup: async () => ({}), recover: async () => ({}), logout: async () => ({}) }; st.me = { email: "preview@lamha.ly", full_name: "Preview", phone: "", verified: "unverified", staff: true };
-window.addEventListener("error",e=>{console.warn(e.message)}); api=async()=>({items:[],offers:[],fields:[],balance_usd:0,total:0}); const auth={login:async()=>({}),signup:async()=>({}),recover:async()=>({}),logout:async()=>({})};
+const st = { tab: 'shop', authMode: 'login', me: null, shop: { service: 'gift_cards', cats: null, cat: null, offers: null, q: '', arr: [], err: null }, sh: { link: '', cart: null, q: {}, quote: null, err: null }, wallet: null, walleterr: false, orders: null, orderserr: false, tickets: null, notifCount: 0, pendingOrder: null, lang: 'ar' };
+window.addEventListener("error", e => { console.warn(e.message); });
+api = async () => ({ items: [], offers: [], fields: [], balance_usd: 0, total: 0 }); auth = { login: async () => ({}), signup: async () => ({}), recover: async () => ({}), logout: async () => ({}) }; st.me = { email: "preview@lamha.ly", full_name: "Preview", phone: "", verified: "unverified", staff: true };
 const TABS = [['shop', 'الرئيسية', 'home'], ['shein', 'SHEIN', 'bag'], ['wallet', 'المحفظة', 'wallet'], ['orders', 'طلباتي', 'box'], ['acc', 'حسابي', 'user']];
 const SVC = { gift_cards: 'بطاقات الهدايا', top_ups: 'شحن الألعاب المباشر' };
 const VER = { unverified: 'غير موثق', pending: 'قيد المراجعة', verified: 'موثق', rejected: 'مرفوض' };
