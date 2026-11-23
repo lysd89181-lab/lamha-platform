@@ -38,7 +38,7 @@ export function parseUsd(v: unknown): number | null {
 
 async function topup(e: Env, u: User, req: Request) {
   if (!u.confirmed) throw new HttpError(403, "email_not_confirmed");
-  const { amount: raw } = (await req.json()) as { amount: number | string };
+  const { amount: raw, return_url } = (await req.json()) as { amount: number | string; return_url?: string };
   const amount = parseUsd(raw);
   const [min, max] = await Promise.all(["topup_min_usd", "topup_max_usd"].map(async k => Number((await sb<any[]>(e, `app_settings?key=eq.${k}&select=value`))[0].value)));
   if (amount === null || amount < min || amount > max) throw new HttpError(400, `amount_must_be_between_${min}_and_${max}`);
@@ -47,12 +47,13 @@ async function topup(e: Env, u: User, req: Request) {
   const parts = String(pr?.full_name || "").trim().split(/\s+/);
   if (parts.length < 2 || !pr?.phone) throw new HttpError(400, "profile_incomplete");
   const [p] = await sb<any[]>(e, "payments", { method: "POST", prefer: "return=representation", body: JSON.stringify({ user_id: u.id, purpose: "wallet_topup", amount_usd: amount }) });
-  const origin = new URL(req.url).origin;
+  const self = new URL(req.url).origin; let back = `${self}/`;
+  try { const ru = new URL(String(return_url || "")); if (originAllowed(e, ru.origin, self)) back = `${ru.origin}${ru.pathname}`; } catch { /* keep default */ }
   const r = await fetch(`${e.EZONE_BASE_URL}/payment-link/new`, {
     method: "POST", headers: { "X-API-Key": e.EZONE_PAY_API_KEY, "content-type": "application/json" },
     body: JSON.stringify({
       Title: "LAMHA wallet top-up", OrderReference: p.id, IsUniqueOrderReference: true, InternalReference: p.id, Amount: amount, Currency: 2 /* USD */, Note: "wallet_topup",
-      ExpiresAt: new Date(Date.now() + 3600_000).toISOString(), MaxUsageCount: 1, Customer: { FirstName: parts[0], LastName: parts.slice(1).join(" "), PhoneNumber: pr.phone }, RedirectUrl: `${origin}/?topup=return`,
+      ExpiresAt: new Date(Date.now() + 3600_000).toISOString(), MaxUsageCount: 1, Customer: { FirstName: parts[0], LastName: parts.slice(1).join(" "), PhoneNumber: pr.phone }, RedirectUrl: `${back}?topup=return`,
     }),
   });
   const d: any = await r.json().catch(() => ({}));
@@ -143,11 +144,21 @@ async function admin(e: Env, u: User, req: Request, path: string) {
 }
 
 // CORS: same-origin always works; other browser origins only if listed in ALLOWED_ORIGINS. The Ezone webhook is server-to-server (no CORS needed).
+// The setting is parsed tolerantly: any http(s) URL inside it counts (commas/spaces/newlines, trailing slash, a path, upper case, and even
+// markdown like "[https://x](https://x)" pasted from a chat). Each entry is reduced to scheme+host, which is what a browser sends as Origin.
+export function parseOrigins(v?: string): string[] {
+  const out: string[] = [];
+  for (const m of (v || "").matchAll(/https?:\/\/[^\s,;\]\[()"'<>]+/gi)) { try { out.push(new URL(m[0]).origin.toLowerCase()); } catch { /* skip junk */ } }
+  return out;
+}
+export function originAllowed(e: Env, origin: string, selfOrigin: string): boolean {
+  const o = origin.toLowerCase(); return o === selfOrigin.toLowerCase() || parseOrigins(e.ALLOWED_ORIGINS).includes(o);
+}
 function withCors(req: Request, e: Env, res: Response): Response {
   const origin = req.headers.get("origin"); const h = new Headers(res.headers); h.set("x-content-type-options", "nosniff");
   if (origin) {
     h.set("vary", "Origin");
-    if (origin === new URL(req.url).origin || (e.ALLOWED_ORIGINS || "").split(",").map(x => x.trim()).includes(origin)) {
+    if (originAllowed(e, origin, new URL(req.url).origin)) {
       h.set("access-control-allow-origin", origin); h.set("access-control-allow-headers", "authorization, content-type"); h.set("access-control-allow-methods", "GET, POST, PUT, PATCH, OPTIONS"); h.set("access-control-max-age", "86400");
     }
   }
@@ -158,7 +169,7 @@ async function handle(req: Request, e: Env): Promise<Response> {
     const url = new URL(req.url); const path = url.pathname.replace(/^\/api\//, "");
     if (!url.pathname.startsWith("/api/")) return e.ASSETS ? e.ASSETS.fetch(req) : new Response("not found", { status: 404 });
     try {
-      if (path === "health") return json({ ok: true });
+      if (path === "health") { const q = url.searchParams.get("origin"); return json(q ? { ok: true, origin_allowed: originAllowed(e, q, url.origin) } : { ok: true }); }
       if (path === "config") return new Response(JSON.stringify({ supabase_url: e.SUPABASE_URL, publishable_key: e.SUPABASE_PUBLISHABLE_KEY }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=300" } }); // public values only
       if (path === "webhooks/ezone" && req.method === "POST") return await ezoneWebhook(e, req);
       const u = await auth(e, req);

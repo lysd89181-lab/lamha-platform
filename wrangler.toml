@@ -2,6 +2,12 @@ name = "lamha"
 main = "index.ts"
 compatibility_date = "2025-01-01"
 
+# الدومين: فعّله بعد ما يكون lamha.ly مضاف في Cloudflare (شيل # من الأسطر الأربعة)
+# routes = [
+#   { pattern = "lamha.ly", custom_domain = true },
+#   { pattern = "www.lamha.ly", custom_domain = true },
+# ]
+
 [assets]
 directory = "."
 binding = "ASSETS"
