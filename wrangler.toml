@@ -1,23 +1,16 @@
 name = "lamha"
-main = "worker/index.ts"
+main = "index.ts"
 compatibility_date = "2025-01-01"
 
-# Custom domain (the lamha.ly zone must be on this Cloudflare account). Remove this block if you only use workers.dev for now.
-routes = [
-  { pattern = "lamha.ly", custom_domain = true },
-  { pattern = "www.lamha.ly", custom_domain = true },
-]
-
 [assets]
-directory = "./web"
+directory = "."
 binding = "ASSETS"
 run_worker_first = ["/api/*"]
 
 [vars]
-EZONE_BASE_URL = "https://test.ezonepay.ly"            # switch to the production Ezone URL when going live
+EZONE_BASE_URL = "https://test.ezonepay.ly"
 RESELLCODES_BASE_URL = "https://resell.codes/api/v1"
-ALLOWED_ORIGINS = "https://lamha.ly,https://www.lamha.ly"
-# Secrets (never here): Cloudflare > Workers > lamha > Settings > Variables and Secrets.
+ALLOWED_ORIGINS = "https://lysd89181-lab.github.io,https://lamha.ly,https://www.lamha.ly"
 
 [triggers]
 crons = ["*/2 * * * *"]
