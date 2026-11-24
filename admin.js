@@ -40,7 +40,13 @@ const post = (p, body) => api(p, { method: 'POST', body });
 const H = {
   lang: () => setLang(nextLang()),
   ovclose: (b, e) => { if (e.target === b) closeM(); }, close: closeM, out: async () => { await auth.logout(); A.me = null; paint(); },
-  login: (b) => guard(b, async () => { await auth.login($('#em').value.trim(), $('#pw').value); await boot(); }),
+  login: (b) => guard(b, async () => {
+    const em = $('#em').value.trim();
+    const pw = $('#pw').value;
+    if (!em || !pw) return toast('أدخل البريد الإلكتروني وكلمة المرور', true);
+    await auth.login(em, pw);
+    await boot(true);
+  }),
   retry: () => load(),
   tab: (b) => { A.tab = b.dataset.k; load(); },
   o_sync: (b) => act(b, () => post(`/admin/orders/${b.dataset.id}/sync`)), o_fail: (b) => { if (confirm(tt('تأكيد: فشل الطلب واسترداد المبلغ لمحفظة العميل؟'))) act(b, () => post(`/admin/orders/${b.dataset.id}/fail`)); },
@@ -60,5 +66,22 @@ const H = {
 document.addEventListener('lamha:lang', () => { closeM(); paint(); });
 document.addEventListener('lamha:expired', () => { A.me = null; closeM(); paint(); toast(tt('انتهت الجلسة، سجّل الدخول من جديد'), true); });
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-a]'); if (b && H[b.dataset.a]) H[b.dataset.a](b, e); });
-async function boot() { if (!S) return paint(); try { A.me = await api('/me'); } catch { A.me = null; setSession(null); } const first = TABS.find(([, , p]) => can(p)); if (first) A.tab = first[0]; paint(); if (A.me?.staff && first) load(); }
+async function boot(fromLogin = false) {
+  if (!S) return paint();
+  try {
+    A.me = await api('/me');
+  } catch (e) {
+    A.me = null;
+    if (fromLogin) {
+      toast('تم تسجيل الدخول لكن فشل التحقق من الحساب (/me): ' + (e?.error || e?.message || e?.status || 'خطأ'), true);
+      paint();
+      return;
+    }
+    setSession(null);
+  }
+  const first = TABS.find(([, , p]) => can(p));
+  if (first) A.tab = first[0];
+  paint();
+  if (A.me?.staff && first) load();
+}
 boot();
