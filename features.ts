@@ -214,35 +214,95 @@ export async function pollProcessing(e: Env, f: typeof fetch = fetch) {
   return n;
 }
 
-// ---------- customer shop (normalized; needs RESELLCODES_FIELD_MAP, otherwise 501) ----------
+// ---------- customer shop (soft-fallback when provider keys are not yet active) ----------
 const SHOP: Record<string, { cats: string; offers: (id: string) => string }> = {
   top_ups: { cats: "/top-ups/categories", offers: id => `/top-ups/categories/${encodeURIComponent(id)}/offers` },
   gift_cards: { cats: "/gift-cards/categories", offers: id => `/gift-cards/categories/${encodeURIComponent(id)}/cards` },
   game_keys: { cats: "/game-keys", offers: id => `/game-keys/${encodeURIComponent(id)}/keys` },
 };
 async function enabled(e: Env, service: string) { const [s] = await sb<any[]>(e, `services?key=eq.${service}&select=enabled,requires_verification`); if (!s?.enabled) throw new HttpError(403, "service_disabled"); return s; }
+
 export async function shopCategories(e: Env, url: URL, f: typeof fetch = fetch) {
-  const service = url.searchParams.get("service") || ""; const sh = SHOP[service]; if (!sh) throw new HttpError(400, "bad_service");
-  await enabled(e, service); const c = catMap(e, service);
-  const q = url.searchParams.get("q")?.trim().slice(0, 60) || undefined; let j; try { j = await rscCached(e, sh.cats, { q, limit: 60 }, 60_000, f); } catch (x) { throw rscToHttp(x); }
+  const service = url.searchParams.get("service") || "";
+  const sh = SHOP[service];
+  if (!sh) throw new HttpError(400, "bad_service");
+
+  let c: ReturnType<typeof catMap>;
+  try {
+    await enabled(e, service);
+    c = catMap(e, service);
+  } catch (x) {
+    if (x instanceof HttpError && (x.status === 403 || x.status === 501)) throw x;
+    return json({ total: 0, items: [], provider_pending: true });
+  }
+
+  const q = url.searchParams.get("q")?.trim().slice(0, 60) || undefined;
+  let j: any;
+  try {
+    j = await rscCached(e, sh.cats, { q, limit: 60 }, 60_000, f);
+  } catch {
+    return json({ total: 0, items: [], provider_pending: true });
+  }
+
   // images are provider-relative paths; only accept the documented media path so nothing arbitrary is rendered
-  const rawCats = listOf(j, c.list).slice(0, 60); const okCats = rawCats.filter((x: any) => x && typeof x[c.id] === "string" && x[c.id]);
+  const rawCats = listOf(j, c.list).slice(0, 60);
+  const okCats = rawCats.filter((x: any) => x && typeof x[c.id] === "string" && x[c.id]);
   if (rawCats.length && !okCats.length) throw new HttpError(502, "unexpected_provider_shape");
-  return json({ total: j?.total ?? null, items: okCats.map((x: any) => ({ id: String(x[c.id]), name: String(x[c.name] ?? x[c.id]), image: c.image && typeof x[c.image] === "string" && x[c.image].startsWith("/api/media/") ? "https://resell.codes" + x[c.image] : null })) });
+
+  return json({
+    total: j?.total ?? okCats.length,
+    items: okCats.map((x: any) => ({
+      id: String(x[c.id]),
+      name: String(x[c.name] ?? x[c.id]),
+      image: c.image && typeof x[c.image] === "string" && x[c.image].startsWith("/api/media/")
+        ? "https://resell.codes" + x[c.image]
+        : null,
+    })),
+  });
 }
+
 export async function shopOffers(e: Env, url: URL, f: typeof fetch = fetch) {
-  const service = url.searchParams.get("service") || ""; const id = url.searchParams.get("id") || ""; const sh = SHOP[service];
+  const service = url.searchParams.get("service") || "";
+  const id = url.searchParams.get("id") || "";
+  const sh = SHOP[service];
   if (!sh || !/^[\w-]{1,100}$/.test(id)) throw new HttpError(400, "bad_input");
-  await enabled(e, service); const m = fieldMap(e, service); let j; try { j = await rscCached(e, sh.offers(id), {}, 30_000, f); } catch (x) { throw rscToHttp(x); }
+
+  let m: ReturnType<typeof fieldMap>;
+  try {
+    await enabled(e, service);
+    m = fieldMap(e, service);
+  } catch (x) {
+    if (x instanceof HttpError && (x.status === 403 || x.status === 501)) throw x;
+    return json({ offers: [], fields: [], empty: true, provider_pending: true });
+  }
+
+  let j: any;
+  try {
+    j = await rscCached(e, sh.offers(id), {}, 30_000, f);
+  } catch {
+    return json({ offers: [], fields: [], empty: true, provider_pending: true });
+  }
+
   const rows = listOf(j, m.list).slice(0, 60).filter((o: any) => o && o[m.id] != null && o[m.price] != null);
   const out = await Promise.all(rows.map(async (o: any) => {
-    const oid = String(o[m.id]); let cost: string; try { cost = parseUsd4(o[m.price]); } catch { return null; }
+    const oid = String(o[m.id]);
+    let cost: string;
+    try { cost = parseUsd4(o[m.price]); } catch { return null; }
     const price = await rpc(e, "sell_price", { p_cost: cost, p_service: service, p_product: `${service}:${oid}` });
     const stock = m.stock && o[m.stock] != null ? Number(o[m.stock]) : null;
-    return { id: oid, name: String(o[m.name || "name"] ?? o.name ?? oid), price_usd: Number(price), stock, min: m.min && o[m.min] != null ? Number(o[m.min]) : 1, max: m.max && o[m.max] != null ? Number(o[m.max]) : 100, available: stock == null || stock > 0 };
+    return {
+      id: oid,
+      name: String(o[m.name || "name"] ?? o.name ?? oid),
+      price_usd: Number(price),
+      stock,
+      min: m.min && o[m.min] != null ? Number(o[m.min]) : 1,
+      max: m.max && o[m.max] != null ? Number(o[m.max]) : 100,
+      available: stock == null || stock > 0,
+    };
   }));
   const offers = out.filter(Boolean);
   if (listOf(j, m.list).length && !offers.length) throw new HttpError(502, "unexpected_provider_shape"); // items exist but our mapped fields are absent: never show broken data
-  let fields: unknown[] = []; try { fields = fieldDefs(j, m) || []; } catch (x) { throw rscToHttp(x); }
+  let fields: unknown[] = [];
+  try { fields = fieldDefs(j, m) || []; } catch (x) { throw rscToHttp(x); }
   return json({ offers, fields, empty: offers.length === 0 });
 }
