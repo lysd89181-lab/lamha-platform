@@ -166,39 +166,60 @@ function withCors(req: Request, e: Env, res: Response): Response {
 }
 
 async function handle(req: Request, e: Env): Promise<Response> {
-    const url = new URL(req.url); const path = url.pathname.replace(/^\/api\//, "");
-    if (!url.pathname.startsWith("/api/")) return e.ASSETS ? e.ASSETS.fetch(req) : new Response("not found", { status: 404 });
-    try {
-      if (path === "health") { const q = url.searchParams.get("origin"); return json(q ? { ok: true, origin_allowed: originAllowed(e, q, url.origin) } : { ok: true }); }
-      if (path === "config") return new Response(JSON.stringify({ supabase_url: e.SUPABASE_URL, publishable_key: e.SUPABASE_PUBLISHABLE_KEY }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=300" } }); // public values only
-      if (path === "webhooks/ezone" && req.method === "POST") return await ezoneWebhook(e, req);
-      const u = await auth(e, req);
-      if (path === "wallet" && req.method === "GET") return await walletGet(e, u);
-      if (path === "wallet/topup" && req.method === "POST") return await topup(e, u, req);
-      if (path === "orders" && req.method === "GET") return await myOrders(e, u);
-      if (path.startsWith("catalog/") && req.method === "GET") return await catalog(e, path.slice(7), url);
-      if (path === "shop/categories" && req.method === "GET") return await F.shopCategories(e, url);
-      if (path === "shop/offers" && req.method === "GET") return await F.shopOffers(e, url);
-      if (path === "orders" && req.method === "POST") return await F.placeProviderOrder(e, u, await req.json());
-      const om = path.match(/^orders\/(\d+)(\/codes)?$/); if (om && req.method === "GET") return om[2] ? await F.orderCodes(e, u, om[1]) : await F.orderDetail(e, u, om[1]);
-      if (path === "shein/cart" && req.method === "POST") return await F.sheinCart(u, await req.json());
-      if (path === "shein/quote" && req.method === "POST") return await F.sheinQuote(e, u, await req.json());
-      if (path === "shein/order" && req.method === "POST") return await F.sheinOrder(e, u, await req.json());
-      if (path === "notifications") return req.method === "POST" ? await F.readNotifications(e, u) : await F.notifications(e, u);
-      if (path === "support") return req.method === "POST" ? await F.supportCreate(e, u, await req.json()) : await F.supportList(e, u);
-      if (path === "verification" && req.method === "POST") return await F.verificationUpload(e, u, req);
-      if (path === "profile" && req.method === "PATCH") {
-        const b: any = await req.json(); const name = String(b.full_name || "").trim().replace(/\s+/g, " "); const phone = String(b.phone || "").trim();
-        if (name.split(" ").length < 2 || name.length > 80 || !/^\+?\d{8,15}$/.test(phone)) throw new HttpError(400, "bad_input");
-        await sb(e, `profiles?id=eq.${u.id}`, { method: "PATCH", body: JSON.stringify({ full_name: name, phone }) }); return json({ ok: true });
-      }
-      if (path === "me") { const [[p], [r]] = await Promise.all([sb<any[]>(e, `profiles?id=eq.${u.id}&select=full_name,phone,verification_status`), sb<any[]>(e, `user_roles?user_id=eq.${u.id}&select=role,permissions`)]); return json({ id: u.id, email: u.email, confirmed: u.confirmed, profile: p, staff: r || null }); }
-      if (path.startsWith("admin/")) { const x = await F.adminExtra(e, u, req, path); if (x) return x; return await admin(e, u, req, path); }
-      throw new HttpError(404, "not_found");
-    } catch (x) {
-      if (x instanceof HttpError) return json({ error: x.message.startsWith("db:") ? "server_error" : x.message }, x.status);
-      console.error("unhandled", (x as Error).message); return json({ error: "server_error" }, 500);
+  const url = new URL(req.url); const path = url.pathname.replace(/^\/api\//, "");
+  if (!url.pathname.startsWith("/api/")) return e.ASSETS ? e.ASSETS.fetch(req) : new Response("not found", { status: 404 });
+  try {
+    if (path === "health") { const q = url.searchParams.get("origin"); return json(q ? { ok: true, origin_allowed: originAllowed(e, q, url.origin) } : { ok: true }); }
+    if (path === "config") return new Response(JSON.stringify({ supabase_url: e.SUPABASE_URL, publishable_key: e.SUPABASE_PUBLISHABLE_KEY }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=300" } }); // public values only
+    if (path === "webhooks/ezone" && req.method === "POST") return await ezoneWebhook(e, req);
+    const u = await auth(e, req);
+    if (path === "wallet" && req.method === "GET") return await walletGet(e, u);
+    if (path === "wallet/topup" && req.method === "POST") return await topup(e, u, req);
+    if (path === "orders" && req.method === "GET") return await myOrders(e, u);
+    if (path.startsWith("catalog/") && req.method === "GET") return await catalog(e, path.slice(7), url);
+    if (path === "shop/categories" && req.method === "GET") return await F.shopCategories(e, url);
+    if (path === "shop/offers" && req.method === "GET") return await F.shopOffers(e, url);
+    if (path === "orders" && req.method === "POST") return await F.placeProviderOrder(e, u, await req.json());
+    const om = path.match(/^orders\/(\d+)(\/codes)?$/); if (om && req.method === "GET") return om[2] ? await F.orderCodes(e, u, om[1]) : await F.orderDetail(e, u, om[1]);
+    if (path === "shein/cart" && req.method === "POST") return await F.sheinCart(u, await req.json());
+    if (path === "shein/quote" && req.method === "POST") return await F.sheinQuote(e, u, await req.json());
+    if (path === "shein/order" && req.method === "POST") return await F.sheinOrder(e, u, await req.json());
+    if (path === "notifications") return req.method === "POST" ? await F.readNotifications(e, u) : await F.notifications(e, u);
+    if (path === "support") return req.method === "POST" ? await F.supportCreate(e, u, await req.json()) : await F.supportList(e, u);
+    if (path === "verification" && req.method === "POST") return await F.verificationUpload(e, u, req);
+    if (path === "profile" && req.method === "PATCH") {
+      const b: any = await req.json(); const name = String(b.full_name || "").trim().replace(/\s+/g, " "); const phone = String(b.phone || "").trim();
+      if (name.split(" ").length < 2 || name.length > 80 || !/^\+?\d{8,15}$/.test(phone)) throw new HttpError(400, "bad_input");
+      await sb(e, `profiles?id=eq.${u.id}`, { method: "PATCH", body: JSON.stringify({ full_name: name, phone }) }); return json({ ok: true });
     }
+    if (path === "me") {
+      let profile: any = null;
+      let staff: any = null;
+      try {
+        const [p] = await sb<any[]>(e, `profiles?id=eq.${u.id}&select=full_name,phone,verification_status`);
+        profile = p ?? null;
+      } catch {
+        try {
+          const [pFallback] = await sb<any[]>(e, `profiles?id=eq.${u.id}&select=*`);
+          profile = pFallback ?? null;
+        } catch {
+          profile = null;
+        }
+      }
+      try {
+        const [r] = await sb<any[]>(e, `user_roles?user_id=eq.${u.id}&select=role,permissions`);
+        staff = r ?? null;
+      } catch {
+        staff = null;
+      }
+      return json({ id: u.id, email: u.email, confirmed: u.confirmed, profile, staff });
+    }
+    if (path.startsWith("admin/")) { const x = await F.adminExtra(e, u, req, path); if (x) return x; return await admin(e, u, req, path); }
+    throw new HttpError(404, "not_found");
+  } catch (x) {
+    if (x instanceof HttpError) return json({ error: x.message.startsWith("db:") ? "server_error" : x.message }, x.status);
+    console.error("unhandled", (x as Error).message); return json({ error: "server_error" }, 500);
+  }
 }
 
 export default {
