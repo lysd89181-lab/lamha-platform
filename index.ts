@@ -195,24 +195,21 @@ async function handle(req: Request, e: Env): Promise<Response> {
     if (path === "me") {
       let profile: any = null;
       let staff: any = null;
+      let staffError: string | null = null;
       try {
-        const [p] = await sb<any[]>(e, `profiles?id=eq.${u.id}&select=full_name,phone,verification_status`);
+        const [p] = await sb<any[]>(e, `profiles?id=eq.${u.id}&select=*`);
         profile = p ?? null;
       } catch {
-        try {
-          const [pFallback] = await sb<any[]>(e, `profiles?id=eq.${u.id}&select=*`);
-          profile = pFallback ?? null;
-        } catch {
-          profile = null;
-        }
+        profile = null;
       }
       try {
         const [r] = await sb<any[]>(e, `user_roles?user_id=eq.${u.id}&select=role,permissions`);
         staff = r ?? null;
-      } catch {
+      } catch (err: any) {
         staff = null;
+        staffError = err?.message || "roles_query_failed";
       }
-      return json({ id: u.id, email: u.email, confirmed: u.confirmed, profile, staff });
+      return json({ id: u.id, email: u.email, confirmed: u.confirmed, profile, staff, ...(staffError ? { staff_error: staffError } : {}) });
     }
     if (path.startsWith("admin/")) { const x = await F.adminExtra(e, u, req, path); if (x) return x; return await admin(e, u, req, path); }
     throw new HttpError(404, "not_found");
