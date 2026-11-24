@@ -9,7 +9,7 @@ export type User = { id: string; email: string; confirmed: boolean };
 export class HttpError extends Error { status: number; constructor(status: number, m: string) { super(m); this.status = status; } }
 export const json = (d: unknown, s = 200) => new Response(JSON.stringify(d), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 
-const sbUrl = (e: Env) => (e.SUPABASE_URL || "https://YOUR_PROJECT_REF.supabase.co").replace(/\/+$/, "");
+const sbUrl = (e: Env) => (e.SUPABASE_URL || "https://lexyiuglleloqmbsoajb.supabase.co").replace(/\/+$/, "");
 
 // ---------- Supabase (service role, server only) ----------
 const sbh = (e: Env) => ({ apikey: e.SUPABASE_SECRET_KEY, authorization: `Bearer ${e.SUPABASE_SECRET_KEY}`, "content-type": "application/json" });
