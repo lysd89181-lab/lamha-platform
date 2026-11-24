@@ -28,7 +28,11 @@ function body() {
 }
 function paint() {
   if (!S) { $('#app').innerHTML = loginView(); return; } if (!A.me) { $('#app').innerHTML = '<div class="empty">جارٍ التحميل…</div>'; return; }
-  if (!A.me.staff) { $('#app').innerHTML = `<div class="pg"><div class="note">هذا الحساب ليس من فريق الإدارة.</div><button class="btn o" data-a="out">خروج</button></div>`; return; }
+  if (!A.me.staff) {
+    const info = `<div dir="ltr" style="margin-top:8px;font-size:12px;opacity:.85">email: ${esc(A.me.email || '')} | id: ${esc(A.me.id || '')}${A.me.staff_error ? ' | err: ' + esc(A.me.staff_error) : ''}</div>`;
+    $('#app').innerHTML = `<div class="pg"><div class="note">هذا الحساب ليس من فريق الإدارة.${info}</div><button class="btn o" data-a="out">خروج</button></div>`;
+    return;
+  }
   $('#app').innerHTML = `<div class="hd"><button data-a="out">خروج</button><img src="logo.png" alt="LAMHA" data-notr="1">${langBtn()}</div><div class="pg"><div class="tabs">${TABS.filter(([, , p]) => can(p)).map(([k, n]) => `<button class="${A.tab === k ? 'on' : ''}" data-a="tab" data-k="${k}">${n}</button>`).join('')}</div>${body()}</div>`;
 }
 async function load() {
