@@ -2,7 +2,7 @@
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const usd = (n) => '$' + Number(n || 0).toFixed(2);
-const API_BASE = 'https://lamha.ysymazn58.workers.dev/api';
+const API_BASE = 'https://lamha-platform.ysymazn58.workers.dev/api';
 const FALLBACK_CFG = {
   supabase_url: 'https://lexyiuglleloqmbsoajb.supabase.co',
   publishable_key: 'sb_publishable_1bA5iviTIIwVinR1wwzCOA_7G0f6Ro0',
