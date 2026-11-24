@@ -1,6 +1,22 @@
 /* LAMHA admin. Hiding tabs is cosmetic only: every call is authorized again on the server (RBAC) and by RLS. */
 const A = { me: null, tab: 'stats', data: null, err: '' };
-const TABS = [['stats', 'الإحصائيات', 'orders'], ['orders', 'الطلبات', 'orders'], ['provider_orders', 'طلبات المزود', 'orders'], ['customers', 'العملاء', 'support'], ['verifications', 'التوثيق', 'verification'], ['payments', 'المدفوعات', 'finance'], ['transactions', 'المعاملات المالية', 'finance'], ['tickets', 'الشكاوى', 'support'], ['settings', 'إعدادات العربون والرسوم', 'settings'], ['pricing', 'التسعير', 'pricing'], ['services', 'الخدمات', 'services'], ['staff', 'المشرفون', 'staff'], ['audit', 'سجل العمليات', 'settings']];
+const P = { service: 'top_ups', q: '', catId: '', cats: [], offers: [], loadingCats: false, loadingOffers: false, err: '' };
+const TABS = [
+  ['stats', 'الإحصائيات', 'orders'],
+  ['orders', 'الطلبات', 'orders'],
+  ['provider_orders', 'طلبات المزود', 'orders'],
+  ['provider_catalog', 'المزود والتسعير', 'pricing'],
+  ['customers', 'العملاء', 'support'],
+  ['verifications', 'التوثيق', 'verification'],
+  ['payments', 'المدفوعات', 'finance'],
+  ['transactions', 'المعاملات المالية', 'finance'],
+  ['tickets', 'الشكاوى', 'support'],
+  ['settings', 'إعدادات العربون والرسوم', 'settings'],
+  ['pricing', 'التسعير', 'pricing'],
+  ['services', 'الخدمات', 'services'],
+  ['staff', 'المشرفون', 'staff'],
+  ['audit', 'سجل العمليات', 'settings'],
+];
 const SET_LABEL = { shein_deposit_pct: 'نسبة عربون SHEIN %', shein_shipping_usd: 'شحن SHEIN (USD)', shein_extra_fee_usd: 'رسوم SHEIN الإضافية (USD)', topup_min_usd: 'أدنى شحن (USD)', topup_max_usd: 'أقصى شحن (USD)' };
 const PERMS = ['orders', 'products', 'verification', 'support', 'finance', 'settings', 'pricing', 'services'];
 const can = (p) => A.me?.staff && (A.me.staff.role === 'super_admin' || A.me.staff.permissions.includes(p));
@@ -12,8 +28,58 @@ function table(rows, actions) {
   return `<div class="tw"><table><thead><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join('')}${actions ? '<th></th>' : ''}</tr></thead><tbody>${rows.map((r) => `<tr>${cols.map((c) => `<td>${/_at$/.test(c) && r[c] ? fmtDate(r[c]) : esc(typeof r[c] === 'object' ? JSON.stringify(r[c]) : r[c])}</td>`).join('')}${actions ? `<td>${actions(r)}</td>` : ''}</tr>`).join('')}</tbody></table></div>`;
 }
 const ob = (a, id, t, c = '') => `<button class="btn s ${c}" data-a="${a}" data-id="${esc(id)}">${t}</button> `;
+
+function providerCatalogView() {
+  const srvOpts = [['top_ups', 'شحن مباشر (top_ups)'], ['gift_cards', 'بطاقات هدايا (gift_cards)'], ['game_keys', 'أكواد ألعاب (game_keys)']]
+    .map(([k, lbl]) => `<option value="${k}" ${P.service === k ? 'selected' : ''}>${lbl}</option>`).join('');
+
+  return `
+    <div class="box">
+      <div class="sec" style="margin-top:0">جلب الخدمات والعروض من المزود</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+        <label class="fld" style="flex:1;min-width:180px;margin:0"><span>الخدمة</span><select id="pc_srv">${srvOpts}</select></label>
+        <label class="fld" style="flex:1;min-width:180px;margin:0"><span>بحث في التصنيفات</span><input id="pc_q" value="${esc(P.q)}" placeholder="Pubg, Steam, iTunes..." dir="ltr"></label>
+        <button class="btn w" data-a="pc_load_cats">جلب التصنيفات</button>
+      </div>
+      ${P.err ? `<div class="note" style="margin-top:10px">${esc(P.err)}</div>` : ''}
+    </div>
+
+    <div class="box">
+      <div class="sec" style="margin-top:0">التصنيفات المتاحة (${P.cats.length})</div>
+      ${P.loadingCats ? '<div class="empty">جارٍ جلب التصنيفات من المزود…</div>' : !P.cats.length ? '<div class="empty">اضغط "جلب التصنيفات" لعرض العناصر</div>' : `
+        <div class="tw"><table><thead><tr><th>المعرّف</th><th>الاسم</th><th>إجراء</th></tr></thead><tbody>
+          ${P.cats.map((c) => `<tr><td dir="ltr">${esc(c.id)}</td><td>${esc(c.name)}</td><td><button class="btn s ${P.catId === String(c.id) ? '' : 'o'}" data-a="pc_load_offers" data-id="${esc(c.id)}">${P.catId === String(c.id) ? 'محدّد' : 'جلب العروض'}</button></td></tr>`).join('')}
+        </tbody></table></div>
+      `}
+    </div>
+
+    <div class="box">
+      <div class="sec" style="margin-top:0">عروض التصنيف ${P.catId ? `(<span dir="ltr">${esc(P.catId)}</span>)` : ''}</div>
+      ${P.loadingOffers ? '<div class="empty">جارٍ جلب العروض وحساب أسعار البيع…</div>' : !P.catId ? '<div class="empty">اختر تصنيفاً واضغط "جلب العروض"</div>' : !P.offers.length ? '<div class="empty">لا توجد عروض لهذا التصنيف</div>' : `
+        <div class="tw"><table><thead><tr><th>المعرّف</th><th>العرض</th><th>سعر البيع الحالي</th><th>المخزون</th><th>نسبة الربح %</th><th>ربح ثابت USD</th><th>حفظ</th></tr></thead><tbody>
+          ${P.offers.map((o) => {
+            const pid = `${P.service}:${o.id}`;
+            const rid = String(o.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+            return `<tr>
+              <td dir="ltr">${esc(o.id)}</td>
+              <td>${esc(o.name)}</td>
+              <td><b>${esc(usd(o.price_usd))}</b></td>
+              <td>${o.stock == null ? '—' : esc(o.stock)}</td>
+              <td><input id="pct_${rid}" value="0" style="width:74px" dir="ltr" inputmode="decimal"></td>
+              <td><input id="fix_${rid}" value="0" style="width:74px" dir="ltr" inputmode="decimal"></td>
+              <td><button class="btn s" data-a="pc_save_price" data-pid="${esc(pid)}" data-rid="${esc(rid)}">تطبيق الربح</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody></table></div>
+      `}
+    </div>
+  `;
+}
+
 function body() {
-  const d = A.data; const t = A.tab; if (A.err) return `<div class="note">${esc(A.err)}</div><button class="btn o" data-a="retry">إعادة المحاولة</button>`; if (d == null) return '<div class="empty">جارٍ التحميل…</div>';
+  const d = A.data; const t = A.tab;
+  if (t === 'provider_catalog') return providerCatalogView();
+  if (A.err) return `<div class="note">${esc(A.err)}</div><button class="btn o" data-a="retry">إعادة المحاولة</button>`; if (d == null) return '<div class="empty">جارٍ التحميل…</div>';
   if (t === 'stats') return `<div class="tabs" style="flex-wrap:wrap">${[['العملاء', d.customers], ['الطلبات', d.orders], ['مدفوعات معلقة', d.pending_payments], ['تحتاج إجراء', d.needs_action], ['الإيراد (USD)', usd(d.revenue_usd)], ['الربح المتوقع (USD)', usd(d.expected_profit_usd)]].map(([k, v]) => `<div class="box" style="min-width:150px;margin:0"><div class="mut">${k}</div><b style="font-size:20px">${esc(v)}</b></div>`).join('')}</div>`;
   if (t === 'orders') return table(d, (r) => (r.service === 'shein' ? (r.status === 'paid' ? ob('o_processing', r.id, 'بدء الشراء') : '') + (r.status === 'processing' ? ob('o_complete', r.id, 'تم التسليم') : '') : r.status === 'processing' ? (r.provider_order_ref ? ob('o_sync', r.id, 'مزامنة', 'o') : ob('o_cands', r.id, 'مطابقة طلب المزود', 'o')) : '') + (['paid', 'processing', 'failed'].includes(r.status) ? ob('o_fail', r.id, 'فشل + استرداد', 'd') : ''));
   if (t === 'provider_orders') return `<div class="note"><div><code>failed_check_refund</code> = <span>رجّعنا المبلغ للعميل لكن المزود قد لا يُرجعه تلقائياً: افتح تذكرة عند ReSellCodes.</span></div><div><code>needs_review</code> = <span>لم نعرف نتيجة الإرسال: طابقه من تبويب الطلبات.</span></div></div>` + table(d);
@@ -35,7 +101,36 @@ function paint() {
   }
   $('#app').innerHTML = `<div class="hd"><button data-a="out">خروج</button><img src="logo.png" alt="LAMHA" data-notr="1">${langBtn()}</div><div class="pg"><div class="tabs">${TABS.filter(([, , p]) => can(p)).map(([k, n]) => `<button class="${A.tab === k ? 'on' : ''}" data-a="tab" data-k="${k}">${n}</button>`).join('')}</div>${body()}</div>`;
 }
+async function loadCats() {
+  P.service = $('#pc_srv')?.value || P.service;
+  P.q = $('#pc_q')?.value.trim() || '';
+  P.err = ''; P.loadingCats = true; P.catId = ''; P.offers = []; paint();
+  try {
+    const qs = new URLSearchParams({ service: P.service });
+    if (P.q) qs.set('q', P.q);
+    const r = await api(`/shop/categories?${qs.toString()}`);
+    P.cats = r.items || [];
+    if (r.provider_pending) P.err = 'المزود بانتظار تفعيل المفاتيح أو لم يردّ بعد.';
+  } catch (e) {
+    P.err = errMsg(e);
+  }
+  P.loadingCats = false; paint();
+}
+async function loadOffers(catId) {
+  P.catId = String(catId || '');
+  P.err = ''; P.loadingOffers = true; P.offers = []; paint();
+  try {
+    const qs = new URLSearchParams({ service: P.service, id: P.catId });
+    const r = await api(`/shop/offers?${qs.toString()}`);
+    P.offers = r.offers || [];
+    if (r.provider_pending) P.err = 'عروض المزود غير متاحة حالياً.';
+  } catch (e) {
+    P.err = errMsg(e);
+  }
+  P.loadingOffers = false; paint();
+}
 async function load() {
+  if (A.tab === 'provider_catalog') { paint(); return; }
   A.data = null; A.err = ''; paint(); const t = A.tab;
   try { A.data = await api(t === 'stats' ? '/admin/stats' : t === 'settings' ? '/admin/settings' : `/admin/list/${t === 'customers' ? 'customers' : t}`); } catch (e) { A.err = errMsg(e); } paint();
 }
@@ -53,6 +148,17 @@ const H = {
   }),
   retry: () => load(),
   tab: (b) => { A.tab = b.dataset.k; load(); },
+  pc_load_cats: () => loadCats(),
+  pc_load_offers: (b) => loadOffers(b.dataset.id),
+  pc_save_price: (b) => guard(b, async () => {
+    const rid = b.dataset.rid;
+    const pid = b.dataset.pid;
+    const percent = $(`#pct_${rid}`).value.trim() || '0';
+    const fixed_usd = $(`#fix_${rid}`).value.trim() || '0';
+    await api('/admin/pricing', { method: 'PUT', body: { scope: 'product', scope_key: pid, percent, fixed_usd } });
+    toast('تم حفظ نسبة الربح للمنتج');
+    if (P.catId) await loadOffers(P.catId);
+  }),
   o_sync: (b) => act(b, () => post(`/admin/orders/${b.dataset.id}/sync`)), o_fail: (b) => { if (confirm(tt('تأكيد: فشل الطلب واسترداد المبلغ لمحفظة العميل؟'))) act(b, () => post(`/admin/orders/${b.dataset.id}/fail`)); },
   o_cands: (b) => guard(b, async () => { const r = await api(`/admin/orders/${b.dataset.id}/candidates`); modal(`<h3>مطابقة طلب المزود<button data-a="close">${ic('x')}</button></h3><div class="mut" style="margin-bottom:8px">${r.note === 'ambiguous_do_not_guess' ? 'عدة طلبات متشابهة: لا تربط إلا بعد التأكد من لوحة المزود.' : r.note === 'none_found' ? 'لا يوجد طلب مطابق (السعر والنوع والوقت). تحقق من لوحة المزود قبل أي استرداد.' : 'تطابق واحد: تأكد منه قبل الربط.'}</div>${r.candidates.map((c) => `<div class="row"><div class="g"><b>#${esc(c.number)}</b> ${esc(c.name || '')}<div class="mut">${esc(c.type)} · ${esc(c.status)} · $${esc(c.charged_usd)} · ${fmtDate(c.created_at)}</div></div><button class="btn s" data-a="o_link" data-id="${esc(b.dataset.id)}" data-n="${esc(c.number)}">ربط</button></div>`).join('')}`); }),
   o_link: (b) => { closeM(); act(b, () => post(`/admin/orders/${b.dataset.id}/link`, { number: b.dataset.n })); },
