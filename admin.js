@@ -1,5 +1,5 @@
 const A = { me: null, tab: 'stats', data: null, err: '' };
-const P = { service: 'top_ups', q: '', catId: '', cats: [], offers: [], loading: false, err: '' };
+const PC = { service: 'all', q: '', catId: '', offSrv: '', cats: [], offers: [], rules: [], loading: false, err: '' };
 const TABS = [
   ['stats', 'الإحصائيات', 'orders'],
   ['orders', 'الطلبات', 'orders'],
@@ -35,44 +35,48 @@ function table(rows, actions) {
 
 const ob = (a, id, t, c = '') => `<button class="btn s ${c}" data-a="${a}" data-id="${esc(id)}">${t}</button> `;
 
+const SVC_LIST = [['top_ups', 'شحن الألعاب المباشر'], ['gift_cards', 'بطاقات الهدايا']];
+const ruleOf = (scope, key) => (PC.rules || []).find((r) => r.scope === scope && (r.scope_key || '') === key);
+function rulesPanel() {
+  const row = (scope, key, label, i) => { const r = ruleOf(scope, key); return `<tr><td>${label}</td><td><input id="rp_${i}" value="${esc(r ? r.percent : 0)}" style="width:70px" dir="ltr" inputmode="decimal"></td><td><input id="rf_${i}" value="${esc(r ? r.fixed_usd : 0)}" style="width:70px" dir="ltr" inputmode="decimal"></td><td><button class="btn s" data-a="pc_rule" data-scope="${scope}" data-key="${key}" data-i="${i}">حفظ</button></td></tr>`; };
+  return `<div class="box"><div class="sec" style="margin-top:0">نسب الربح لكل الخدمات</div><div class="mut" style="margin-bottom:8px">القاعدة العامة تشمل كل المزودين والخدمات. قاعدة الخدمة تتغلب عليها، وقاعدة المنتج تتغلب على الاثنتين (لا تُجمع النسب).</div>
+    <div class="tw"><table><thead><tr><th>النطاق</th><th>ربح %</th><th>ربح ثابت</th><th></th></tr></thead><tbody>${row('global', '', 'عام (كل الخدمات)', 0)}${SVC_LIST.map(([k, l], n) => row('service', k, l, n + 1)).join('')}</tbody></table></div></div>`;
+}
 function catalogTab() {
-  const opts = [['top_ups', 'شحن مباشر (top_ups)'], ['gift_cards', 'بطاقات هدايا (gift_cards)'], ['game_keys', 'أكواد ألعاب (game_keys)']]
-    .map(([k, l]) => `<option value="${k}" ${P.service === k ? 'selected' : ''}>${l}</option>`).join('');
-  return `
+  const opts = [['all', 'كل الخدمات (كل المزودين)'], ...SVC_LIST].map(([k, l]) => `<option value="${k}" ${PC.service === k ? 'selected' : ''}>${l}</option>`).join('');
+  const tag = (s) => (s === 'product' ? 'قاعدة منتج' : s === 'service' ? 'قاعدة خدمة' : s === 'global' ? 'قاعدة عامة' : 'بدون ربح');
+  return rulesPanel() + `
     <div class="box">
       <div class="sec" style="margin-top:0">جلب الخدمات والعروض من المزود</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
         <label class="fld" style="flex:1;min-width:160px;margin:0"><span>الخدمة</span><select id="pc_srv">${opts}</select></label>
-        <label class="fld" style="flex:1;min-width:160px;margin:0"><span>بحث</span><input id="pc_q" value="${esc(P.q)}" placeholder="PUBG, Steam..." dir="ltr"></label>
+        <label class="fld" style="flex:1;min-width:160px;margin:0"><span>بحث</span><input id="pc_q" value="${esc(PC.q)}" placeholder="PUBG, Steam..." dir="ltr"></label>
         <button class="btn w" data-a="pc_cats">جلب التصنيفات</button>
       </div>
-      ${P.err ? `<div class="note" style="margin-top:10px">${esc(P.err)}</div>` : ''}
+      ${PC.err ? `<div class="note" style="margin-top:10px">${esc(PC.err)}</div>` : ''}
     </div>
     <div class="box">
-      <div class="sec" style="margin-top:0">التصنيفات (${P.cats.length})</div>
-      ${P.loading ? '<div class="empty">جارٍ التحميل…</div>' : !P.cats.length ? '<div class="empty">اضغط جلب التصنيفات</div>' : `
-        <div class="tw"><table><thead><tr><th>ID</th><th>الاسم</th><th>العروض</th></tr></thead><tbody>
-          ${P.cats.map((c) => `<tr><td dir="ltr">${esc(c.id)}</td><td>${esc(c.name)}</td><td><button class="btn s o" data-a="pc_offers" data-id="${esc(c.id)}">جلب العروض</button></td></tr>`).join('')}
-        </tbody></table></div>
-      `}
+      <div class="sec" style="margin-top:0">التصنيفات (${PC.cats.length})</div>
+      ${PC.loading && !PC.cats.length ? '<div class="empty">جارٍ التحميل…</div>' : !PC.cats.length ? '<div class="empty">اضغط جلب التصنيفات</div>' : `
+        <div class="tw"><table><thead><tr><th>الخدمة</th><th>ID</th><th>الاسم</th><th></th></tr></thead><tbody>
+          ${PC.cats.map((c) => `<tr><td dir="ltr">${esc(c.service)}</td><td dir="ltr">${esc(c.id)}</td><td dir="auto">${esc(c.name)}</td><td><button class="btn s ${PC.catId === c.id && PC.offSrv === c.service ? '' : 'o'}" data-a="pc_offers" data-id="${esc(c.id)}" data-srv="${esc(c.service)}">جلب العروض</button></td></tr>`).join('')}
+        </tbody></table></div>`}
     </div>
     <div class="box">
-      <div class="sec" style="margin-top:0">العروض (${P.offers.length})</div>
-      ${!P.offers.length ? '<div class="empty">اختر تصنيفاً لعرض الأسعار وتعديل الربح</div>' : `
-        <div class="tw"><table><thead><tr><th>ID</th><th>العرض</th><th>سعر البيع</th><th>ربح %</th><th>ربح ثابت</th><th>حفظ</th></tr></thead><tbody>
-          ${P.offers.map((o, i) => {
-            const pid = `${P.service}:${o.id}`;
-            return `<tr>
-              <td dir="ltr">${esc(o.id)}</td>
-              <td>${esc(o.name)}</td>
-              <td><b>${esc(fmtMoney(o.price_usd))}</b></td>
-              <td><input id="pct_${i}" value="0" style="width:70px" dir="ltr"></td>
-              <td><input id="fix_${i}" value="0" style="width:70px" dir="ltr"></td>
-              <td><button class="btn s" data-a="pc_price" data-pid="${esc(pid)}" data-idx="${i}">حفظ</button></td>
-            </tr>`;
-          }).join('')}
+      <div class="sec" style="margin-top:0">العروض (${PC.offers.length})${PC.catId ? ` · <span dir="ltr">${esc(PC.catId)}</span>` : ''}</div>
+      <div class="mut" style="margin-bottom:8px">الأولوية: منتج ← خدمة ← عام (لا تُجمع النسب). سعر البيع = التكلفة × (1 + النسبة) + الربح الثابت.</div>
+      ${PC.loading && PC.cats.length && !PC.offers.length ? '<div class="empty">جارٍ التحميل…</div>' : !PC.offers.length ? '<div class="empty">اختر تصنيفاً لعرض الأسعار وتعديل الربح</div>' : `
+        <div class="tw"><table><thead><tr><th>ID</th><th>العرض</th><th>التكلفة</th><th>سعر البيع</th><th>الربح</th><th>القاعدة</th><th>ربح %</th><th>ربح ثابت</th><th></th></tr></thead><tbody>
+          ${PC.offers.map((o, i) => `<tr>
+            <td dir="ltr">${esc(o.id)}</td><td dir="auto">${esc(o.name)}</td>
+            <td dir="ltr">$${esc(o.cost_usd)}</td><td dir="ltr"><b>${esc(fmtMoney(o.price_usd))}</b></td><td dir="ltr">$${esc(Number(o.profit_usd).toFixed(4))}</td>
+            <td><span class="tag ${o.rule.scope === 'product' ? 'ok' : ''}">${tag(o.rule.scope)}</span></td>
+            <td><input id="pct_${i}" value="${esc(o.rule.percent)}" style="width:70px" dir="ltr" inputmode="decimal"></td>
+            <td><input id="fix_${i}" value="${esc(o.rule.fixed_usd)}" style="width:70px" dir="ltr" inputmode="decimal"></td>
+            <td style="white-space:nowrap"><button class="btn s" data-a="pc_price" data-pid="${esc(o.pid)}" data-idx="${i}">حفظ</button>${o.rule.scope === 'product' ? ` <button class="btn s o" data-a="pc_rm" data-pid="${esc(o.pid)}">إزالة قاعدة المنتج</button>` : ''}</td>
+          </tr>`).join('')}
         </tbody></table></div>
-      `}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:10px"><label class="fld" style="margin:0"><span>ربح % لكل العروض</span><input id="bulk_pct" value="0" style="width:90px" dir="ltr" inputmode="decimal"></label><label class="fld" style="margin:0"><span>ربح ثابت</span><input id="bulk_fix" value="0" style="width:90px" dir="ltr" inputmode="decimal"></label><button class="btn" data-a="pc_bulk">تطبيق على كل عروض التصنيف</button></div>`}
     </div>
   `;
 }
@@ -108,7 +112,7 @@ function paint() {
 }
 
 async function load() {
-  if (A.tab === 'provider_catalog') { paint(); return; }
+  if (A.tab === 'provider_catalog') { paint(); pcLoadRules(); return; }
   A.data = null; A.err = ''; paint();
   const t = A.tab;
   try {
@@ -122,6 +126,13 @@ async function load() {
 const act = (b, fn) => guard(b, async () => { await fn(); toast('تم'); load(); });
 const post = (p, body) => api(p, { method: 'POST', body });
 
+async function pcLoadRules() { try { PC.rules = (await api('/admin/list/pricing')) || []; } catch (e) { PC.err = fmtErr(e); } paint(); }
+async function pcLoadOffers() {
+  PC.err = ''; PC.loading = true; paint();
+  try { PC.offers = (await api(`/admin/provider/offers?${new URLSearchParams({ service: PC.offSrv || PC.service, id: PC.catId })}`))?.offers || []; if (!PC.offers.length) PC.err = tt('لا توجد عروض نشطة لهذا التصنيف الآن'); }
+  catch (e) { PC.offers = []; PC.err = fmtErr(e); }
+  PC.loading = false; paint();
+}
 const H = {
   lang: () => setLang(nextLang()),
   ovclose: (b, e) => { if (e.target === b) closeM(); },
@@ -137,40 +148,29 @@ const H = {
   retry: () => load(),
   tab: (b) => { A.tab = b.dataset.k; load(); },
   pc_cats: async () => {
-    P.service = $('#pc_srv')?.value || P.service;
-    P.q = $('#pc_q')?.value.trim() || '';
-    P.err = ''; P.loading = true; P.catId = ''; P.offers = []; paint();
-    try {
-      const qs = new URLSearchParams({ service: P.service });
-      if (P.q) qs.set('q', P.q);
-      const r = await api(`/shop/categories?${qs.toString()}`);
-      P.cats = r?.items || [];
-      if (r?.provider_pending) P.err = 'المزود بانتظار تفعيل المفاتيح أو لم يردّ بعد.';
-    } catch (e) { P.err = fmtErr(e); }
-    P.loading = false; paint();
+    PC.service = $('#pc_srv')?.value || PC.service; PC.q = $('#pc_q')?.value.trim() || '';
+    PC.err = ''; PC.loading = true; PC.catId = ''; PC.offers = []; paint();
+    const targets = PC.service === 'all' ? SVC_LIST.map((x) => x[0]) : [PC.service];
+    const res = await Promise.allSettled(targets.map(async (srv) => { const qs = new URLSearchParams({ service: srv }); if (PC.q) qs.set('q', PC.q); return ((await api(`/admin/provider/categories?${qs}`))?.items || []).map((c) => ({ ...c, service: srv })); }));
+    PC.cats = res.flatMap((x) => (x.status === 'fulfilled' ? x.value : []));
+    PC.err = res.map((x, i) => (x.status === 'rejected' ? `${targets[i]}: ${fmtErr(x.reason)}` : '')).filter(Boolean).join(' | ') || (PC.cats.length ? '' : tt('لا توجد تصنيفات مطابقة'));
+    PC.loading = false; paint();
   },
-  pc_offers: async (b) => {
-    P.catId = b.dataset.id;
-    P.err = ''; P.loading = true; P.offers = []; paint();
-    try {
-      const r = await api(`/shop/offers?${new URLSearchParams({ service: P.service, id: P.catId }).toString()}`);
-      P.offers = r?.offers || [];
-      if (r?.provider_pending) P.err = 'عروض المزود غير متاحة حالياً.';
-    } catch (e) { P.err = fmtErr(e); }
-    P.loading = false; paint();
-  },
-  pc_price: (b) => guard(b, async () => {
-    const idx = b.dataset.idx;
-    const percent = $(`#pct_${idx}`)?.value.trim() || '0';
-    const fixed_usd = $(`#fix_${idx}`)?.value.trim() || '0';
-    await api('/admin/pricing', { method: 'PUT', body: { scope: 'product', scope_key: b.dataset.pid, percent, fixed_usd } });
-    toast('تم حفظ الربح');
-    if (P.catId) {
-      const r = await api(`/shop/offers?${new URLSearchParams({ service: P.service, id: P.catId }).toString()}`);
-      P.offers = r?.offers || [];
-      paint();
-    }
+  pc_offers: async (b) => { PC.catId = b.dataset.id; PC.offSrv = b.dataset.srv; await pcLoadOffers(); },
+  pc_rule: (b) => guard(b, async () => {
+    const i = b.dataset.i; const percent = $(`#rp_${i}`)?.value.trim(), fixed_usd = $(`#rf_${i}`)?.value.trim(); const num = /^\d{1,5}(\.\d{1,2})?$/;
+    if (!num.test(percent) || !num.test(fixed_usd)) return toast(tt('قيمة غير صالحة (أرقام فقط، حتى منزلتين عشريتين)'), true);
+    await api('/admin/pricing', { method: 'PUT', body: { scope: b.dataset.scope, scope_key: b.dataset.key, percent, fixed_usd } }); toast(tt('تم حفظ الربح')); await pcLoadRules(); if (PC.catId) await pcLoadOffers(); else paint();
   }),
+  pc_bulk: (b) => { const percent = $('#bulk_pct')?.value.trim(), fixed_usd = $('#bulk_fix')?.value.trim(); const num = /^\d{1,5}(\.\d{1,2})?$/;
+    if (!num.test(percent) || !num.test(fixed_usd)) return toast(tt('قيمة غير صالحة (أرقام فقط، حتى منزلتين عشريتين)'), true);
+    if (confirm(tt('تطبيق هذه النسبة على كل عروض التصنيف؟') + ' (' + PC.offers.length + ')')) guard(b, async () => { await api('/admin/pricing/bulk', { method: 'POST', body: { keys: PC.offers.map((o) => o.pid), percent, fixed_usd } }); toast(tt('تم حفظ الربح')); await pcLoadOffers(); }); },
+  pc_price: (b) => guard(b, async () => {
+    const i = b.dataset.idx; const percent = $(`#pct_${i}`)?.value.trim(), fixed_usd = $(`#fix_${i}`)?.value.trim(); const num = /^\d{1,5}(\.\d{1,2})?$/;
+    if (!num.test(percent) || !num.test(fixed_usd)) return toast(tt('قيمة غير صالحة (أرقام فقط، حتى منزلتين عشريتين)'), true);
+    await api('/admin/pricing', { method: 'PUT', body: { scope: 'product', scope_key: b.dataset.pid, percent, fixed_usd } }); toast(tt('تم حفظ الربح')); await pcLoadOffers();
+  }),
+  pc_rm: (b) => { if (confirm(tt('إزالة قاعدة هذا المنتج؟ سيعود لقاعدة الخدمة أو العامة.'))) guard(b, async () => { await api('/admin/pricing/remove', { method: 'POST', body: { scope: 'product', scope_key: b.dataset.pid } }); toast(tt('تمت الإزالة')); await pcLoadOffers(); }); },
   o_sync: (b) => act(b, () => post(`/admin/orders/${b.dataset.id}/sync`)),
   o_fail: (b) => { if (confirm(tt('تأكيد: فشل الطلب واسترداد المبلغ لمحفظة العميل؟'))) act(b, () => post(`/admin/orders/${b.dataset.id}/fail`)); },
   o_cands: (b) => guard(b, async () => {

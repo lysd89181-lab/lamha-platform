@@ -55,6 +55,13 @@ const DICT = {
     'رجّعنا المبلغ للعميل لكن المزود قد لا يُرجعه تلقائياً: افتح تذكرة عند ReSellCodes.': 'We refunded the customer but the provider may not refund automatically: open a ticket with ReSellCodes.', 'لم نعرف نتيجة الإرسال: طابقه من تبويب الطلبات.': 'The send outcome is unknown: match it from the Orders tab.',
     'عدة طلبات متشابهة: لا تربط إلا بعد التأكد من لوحة المزود.': 'Several similar orders: link only after checking the provider panel.', 'لا يوجد طلب مطابق (السعر والنوع والوقت). تحقق من لوحة المزود قبل أي استرداد.': 'No matching order (price, type, time). Check the provider panel before any refund.', 'تطابق واحد: تأكد منه قبل الربط.': 'One match: verify it before linking.',
     'تأكيد: فشل الطلب واسترداد المبلغ لمحفظة العميل؟': 'Confirm: fail the order and refund the customer wallet?', 'سبب الرفض (يظهر للعميل):': 'Rejection reason (shown to the customer):', 'حذف هذا المشرف؟': 'Delete this staff member?',
+    // provider & pricing tab
+    'المزود والتسعير': 'Provider & pricing', 'نسب الربح لكل الخدمات': 'Profit rates for all services', 'القاعدة العامة تشمل كل المزودين والخدمات. قاعدة الخدمة تتغلب عليها، وقاعدة المنتج تتغلب على الاثنتين (لا تُجمع النسب).': 'The global rule covers every provider and service. A service rule overrides it, and a product rule overrides both (percentages are never added).',
+    'ربح %': 'Profit %', 'ربح ثابت': 'Fixed profit', 'عام (كل الخدمات)': 'Global (all services)', 'جلب الخدمات والعروض من المزود': 'Fetch services and offers from the provider', 'الخدمة': 'Service', 'كل الخدمات (كل المزودين)': 'All services (all providers)', 'بحث': 'Search', 'جلب التصنيفات': 'Fetch categories',
+    'اضغط جلب التصنيفات': 'Press "Fetch categories"', 'الاسم': 'Name', 'جلب العروض': 'Fetch offers', 'الأولوية: منتج ← خدمة ← عام (لا تُجمع النسب). سعر البيع = التكلفة × (1 + النسبة) + الربح الثابت.': 'Priority: product → service → global (percentages are never added). Sell price = cost × (1 + percentage) + fixed profit.',
+    'اختر تصنيفاً لعرض الأسعار وتعديل الربح': 'Choose a category to see prices and edit profit', 'العرض': 'Offer', 'التكلفة': 'Cost', 'سعر البيع': 'Sell price', 'الربح': 'Profit', 'القاعدة': 'Rule', 'قاعدة منتج': 'Product rule', 'قاعدة خدمة': 'Service rule', 'قاعدة عامة': 'Global rule', 'بدون ربح': 'No profit',
+    'إزالة قاعدة المنتج': 'Remove product rule', 'ربح % لكل العروض': 'Profit % for all offers', 'تطبيق على كل عروض التصنيف': 'Apply to all offers in the category', 'قيمة غير صالحة (أرقام فقط، حتى منزلتين عشريتين)': 'Invalid value (numbers only, up to two decimals)', 'تم حفظ الربح': 'Profit saved', 'تمت الإزالة': 'Removed',
+    'لا توجد تصنيفات مطابقة': 'No matching categories', 'لا توجد عروض نشطة لهذا التصنيف الآن': 'No active offers in this category right now', 'إزالة قاعدة هذا المنتج؟ سيعود لقاعدة الخدمة أو العامة.': 'Remove this product rule? It will fall back to the service or global rule.', 'تطبيق هذه النسبة على كل عروض التصنيف؟': 'Apply this rate to all offers in the category?',
   },
 };
 const RULES = {
@@ -62,6 +69,8 @@ const RULES = {
     [/^طلب #(\d+)$/, 'Order #$1'], [/^طلب SHEIN #(\d+)$/, 'SHEIN order #$1'], [/^طلب #(\d+) — (.*)$/, 'Order #$1 — $2'], [/^متوفر: (\d+)$/, 'Available: $1'], [/^يُعرض (\d+) من (\d+)\. استعمل البحث للوصول لباقي التصنيفات\.$/, 'Showing $1 of $2. Use search to find other categories.'],
     [/^وفّر (\S+) \((.*)%\)$/, 'Save $1 ($2%)'], [/^(.*) · رصيد بعد: (.*)$/, '$1 · Balance after: $2'], [/^العملة التي أعادتها SHEIN: (.*) · الأسعار المعتمدة بالدولار فقط · الكميات يحددها العميل$/, 'Currency returned by SHEIN: $1 · Prices used are USD only · You choose the quantities'],
     [/^تم استلام العربون\. طلب #(\d+)$/, 'Deposit received. Order #$1'], [/^اكتب الشكوى أدناه \(طلب #(\d+)\)$/, 'Write your complaint below (order #$1)'], [/^تعذّر التنفيذ: (.*)$/, 'Action failed: $1'],
+    [/^التصنيفات \((\d+)\)$/, 'Categories ($1)'], [/^العروض \((\d+)\)(\s·)?$/, 'Offers ($1)$2'],
+    [/^[a-z_]+: .+$/, (k) => k.split(' | ').map((p) => p.replace(/^([a-z_]+: )(.*)$/, (_m, a, b) => a + trText(b))).join(' | ')], // "service: error text" notes
   ],
 };
 let LANG = 'ar'; try { LANG = localStorage.getItem('lamha_lang') || 'ar'; } catch { /* private mode */ }

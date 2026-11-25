@@ -153,6 +153,20 @@ const LISTS: Record<string, { perm: string; sel: string; order: string }> = {
 };
 export async function adminExtra(e: Env, u: User, req: Request, path: string): Promise<Response | null> {
   let m: RegExpMatchArray | null;
+  if (path === "admin/provider/categories" && req.method === "GET") { await requireAdmin(e, u, "pricing"); return adminProviderCategories(e, new URL(req.url)); }
+  if (path === "admin/provider/offers" && req.method === "GET") { await requireAdmin(e, u, "pricing"); return adminProviderOffers(e, new URL(req.url)); }
+  if (path === "admin/pricing/bulk" && req.method === "POST") { // same profit for many products at once (e.g. every offer of one category)
+    await requireAdmin(e, u, "pricing"); const b: any = await req.json(); const num = /^\d{1,5}(\.\d{1,2})?$/;
+    const keys: string[] = Array.isArray(b.keys) ? [...new Set<string>(b.keys.map(String))] : []; const pct = String(b.percent ?? "0"), fix = String(b.fixed_usd ?? "0");
+    if (!keys.length || keys.length > 100 || !keys.every(k => /^[a-z_]{3,20}:[\w.-]{1,100}$/.test(k)) || !num.test(pct) || !num.test(fix)) throw new HttpError(400, "bad_input");
+    await sb(e, "pricing_rules?on_conflict=scope,scope_key", { method: "POST", prefer: "resolution=merge-duplicates", body: JSON.stringify(keys.map(k => ({ scope: "product", scope_key: k, percent: Number(pct), fixed_usd: Number(fix) }))) });
+    await audit(e, u.id, "pricing.bulk", String(keys.length), { percent: pct, fixed_usd: fix, sample: keys.slice(0, 5) }); return json({ ok: true, count: keys.length });
+  }
+  if (path === "admin/pricing/remove" && req.method === "POST") { // back to the service/global rule; the global rule itself can never be removed
+    await requireAdmin(e, u, "pricing"); const b: any = await req.json(); const scope = String(b.scope), key = String(b.scope_key || "");
+    if (!["service", "product"].includes(scope) || !/^[\w:.-]{1,120}$/.test(key)) throw new HttpError(400, "bad_input");
+    await sb(e, `pricing_rules?scope=eq.${scope}&scope_key=eq.${encodeURIComponent(key)}`, { method: "DELETE" }); await audit(e, u.id, "pricing.remove", `${scope}:${key}`, {}); return json({ ok: true });
+  }
   if ((m = path.match(/^admin\/list\/(\w+)$/)) && req.method === "GET") {
     const l = LISTS[m[1]]; if (!l) throw new HttpError(404, "not_found"); await requireAdmin(e, u, l.perm);
     return json(await sb(e, `${l.sel}&order=${l.order}&limit=200`));
@@ -305,4 +319,35 @@ export async function shopOffers(e: Env, url: URL, f: typeof fetch = fetch) {
   let fields: unknown[] = [];
   try { fields = fieldDefs(j, m) || []; } catch (x) { throw rscToHttp(x); }
   return json({ offers, fields, empty: offers.length === 0 });
+}
+
+// ---------- admin: provider catalog + pricing (cost, sell price, profit, active rule). Admin-only; errors are NOT softened here ----------
+async function adminProviderRules(e: Env) { return sb<any[]>(e, "pricing_rules?select=scope,scope_key,percent,fixed_usd"); }
+function activeRule(rules: any[], service: string, pid: string) {
+  const r = rules.find(x => x.scope === "product" && x.scope_key === pid) || rules.find(x => x.scope === "service" && x.scope_key === service) || rules.find(x => x.scope === "global");
+  return r ? { scope: r.scope, percent: Number(r.percent), fixed_usd: Number(r.fixed_usd) } : { scope: null, percent: 0, fixed_usd: 0 };
+}
+export async function adminProviderCategories(e: Env, url: URL, f: typeof fetch = fetch) {
+  const service = url.searchParams.get("service") || ""; const sh = SHOP[service]; if (!sh) throw new HttpError(400, "bad_service");
+  let c: ReturnType<typeof catMap>; try { c = catMap(e, service); } catch (x) { throw rscToHttp(x); }
+  const q = url.searchParams.get("q")?.trim().slice(0, 60) || undefined;
+  let j: any; try { j = await rscCached(e, sh.cats, { q, limit: 60 }, 30_000, f); } catch (x) { throw rscToHttp(x); }
+  const raw = listOf(j, c.list).slice(0, 60); const ok = raw.filter((x: any) => x && typeof x[c.id] === "string" && x[c.id]);
+  if (raw.length && !ok.length) throw new HttpError(502, "unexpected_provider_shape");
+  return json({ total: j?.total ?? ok.length, items: ok.map((x: any) => ({ id: String(x[c.id]), name: String(x[c.name] ?? x[c.id]) })) });
+}
+export async function adminProviderOffers(e: Env, url: URL, f: typeof fetch = fetch) {
+  const service = url.searchParams.get("service") || ""; const id = url.searchParams.get("id") || ""; const sh = SHOP[service];
+  if (!sh || !/^[\w-]{1,100}$/.test(id)) throw new HttpError(400, "bad_input");
+  let m: ReturnType<typeof fieldMap>; try { m = fieldMap(e, service); } catch (x) { throw rscToHttp(x); }
+  let j: any; try { j = await rscCached(e, sh.offers(id), {}, 15_000, f); } catch (x) { throw rscToHttp(x); }
+  const rules = await adminProviderRules(e); const rows = listOf(j, m.list).slice(0, 80).filter((o: any) => o && o[m.id] != null && o[m.price] != null);
+  const offers = (await Promise.all(rows.map(async (o: any) => {
+    const oid = String(o[m.id]); let cost: string; try { cost = parseUsd4(o[m.price]); } catch { return null; }
+    const pid = `${service}:${oid}`; const price = Number(await rpc(e, "sell_price", { p_cost: cost, p_service: service, p_product: pid })); // authoritative price (same function the checkout uses)
+    const profit = (Math.round(price * 10000) - Math.round(Number(cost) * 10000)) / 10000;
+    return { id: oid, pid, name: String(o[m.name || "name"] ?? o.name ?? oid), cost_usd: cost, price_usd: price, profit_usd: profit, stock: m.stock && o[m.stock] != null ? Number(o[m.stock]) : null, rule: activeRule(rules, service, pid) };
+  }))).filter(Boolean);
+  if (rows.length && !offers.length) throw new HttpError(502, "unexpected_provider_shape");
+  return json({ offers, service_rule: activeRule(rules, service, `${service}:-`), empty: offers.length === 0 });
 }
