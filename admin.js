@@ -1,5 +1,5 @@
 const A = { me: null, tab: 'stats', data: null, err: '' };
-const PC = { service: 'all', q: '', catId: '', offSrv: '', cats: [], offers: [], rules: [], loading: false, err: '' };
+const PC = { service: 'all', q: '', f: '', show: 40, catId: '', offSrv: '', cats: [], stats: [], offers: [], rules: [], loading: false, err: '' };
 const TABS = [
   ['stats', 'الإحصائيات', 'orders'],
   ['orders', 'الطلبات', 'orders'],
@@ -30,7 +30,7 @@ function loginView() {
 function table(rows, actions) {
   if (!rows?.length) return '<div class="empty">لا توجد بيانات</div>';
   const cols = Object.keys(rows[0]);
-  return `<div class="tw"><table><thead><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join('')}${actions ? '<th></th>' : ''}</tr></thead><tbody>${rows.map((r) => `<tr>${cols.map((c) => `<td>${/_at$/.test(c) && r[c] ? fmtDate(r[c]) : esc(typeof r[c] === 'object' ? JSON.stringify(r[c]) : r[c])}</td>`).join('')}${actions ? `<td>${actions(r)}</td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+  return `<div class="tw"><table><thead><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join('')}${actions ? '<th></th>' : ''}</tr></thead><tbody>${rows.map((r) => `<tr>${cols.map((c) => `<td data-l="${esc(c)}">${/_at$/.test(c) && r[c] ? fmtDate(r[c]) : esc(typeof r[c] === 'object' ? JSON.stringify(r[c]) : r[c])}</td>`).join('')}${actions ? `<td data-l="">${actions(r)}</td>` : ''}</tr>`).join('')}</tbody></table></div>`;
 }
 
 const ob = (a, id, t, c = '') => `<button class="btn s ${c}" data-a="${a}" data-id="${esc(id)}">${t}</button> `;
@@ -38,7 +38,7 @@ const ob = (a, id, t, c = '') => `<button class="btn s ${c}" data-a="${a}" data-
 const SVC_LIST = [['top_ups', 'شحن الألعاب المباشر'], ['gift_cards', 'بطاقات الهدايا']];
 const ruleOf = (scope, key) => (PC.rules || []).find((r) => r.scope === scope && (r.scope_key || '') === key);
 function rulesPanel() {
-  const row = (scope, key, label, i) => { const r = ruleOf(scope, key); return `<tr><td>${label}</td><td><input id="rp_${i}" value="${esc(r ? r.percent : 0)}" style="width:70px" dir="ltr" inputmode="decimal"></td><td><input id="rf_${i}" value="${esc(r ? r.fixed_usd : 0)}" style="width:70px" dir="ltr" inputmode="decimal"></td><td><button class="btn s" data-a="pc_rule" data-scope="${scope}" data-key="${key}" data-i="${i}">حفظ</button></td></tr>`; };
+  const row = (scope, key, label, i) => { const r = ruleOf(scope, key); return `<tr><td data-l="النطاق">${label}</td><td data-l="ربح %"><input id="rp_${i}" value="${esc(r ? r.percent : 0)}" style="width:70px" dir="ltr" inputmode="decimal"></td><td data-l="ربح ثابت"><input id="rf_${i}" value="${esc(r ? r.fixed_usd : 0)}" style="width:70px" dir="ltr" inputmode="decimal"></td><td data-l=""><button class="btn s" data-a="pc_rule" data-scope="${scope}" data-key="${key}" data-i="${i}">حفظ</button></td></tr>`; };
   return `<div class="box"><div class="sec" style="margin-top:0">نسب الربح لكل الخدمات</div><div class="mut" style="margin-bottom:8px">القاعدة العامة تشمل كل المزودين والخدمات. قاعدة الخدمة تتغلب عليها، وقاعدة المنتج تتغلب على الاثنتين (لا تُجمع النسب).</div>
     <div class="tw"><table><thead><tr><th>النطاق</th><th>ربح %</th><th>ربح ثابت</th><th></th></tr></thead><tbody>${row('global', '', 'عام (كل الخدمات)', 0)}${SVC_LIST.map(([k, l], n) => row('service', k, l, n + 1)).join('')}</tbody></table></div></div>`;
 }
@@ -57,10 +57,14 @@ function catalogTab() {
     </div>
     <div class="box">
       <div class="sec" style="margin-top:0">التصنيفات (${PC.cats.length})</div>
-      ${PC.loading && !PC.cats.length ? '<div class="empty">جارٍ التحميل…</div>' : !PC.cats.length ? '<div class="empty">اضغط جلب التصنيفات</div>' : `
+      ${PC.stats.map((x) => `<div class="mut">${esc(x.service)}: ${x.shown} / ${x.total}${x.complete ? '' : ' — ' + tt('لم يُجلب الكل: استعمل البحث للباقي')}</div>`).join('')}
+      ${PC.loading && !PC.cats.length ? '<div class="empty">جارٍ التحميل…</div>' : !PC.cats.length ? '<div class="empty">اضغط جلب التصنيفات</div>' : (() => {
+        const q = PC.f.trim().toLowerCase(); const all = q ? PC.cats.filter((c) => (c.id + ' ' + c.name).toLowerCase().includes(q)) : PC.cats; const list = all.slice(0, PC.show);
+        return `<div class="pcbar"><input id="pc_f" value="${esc(PC.f)}" placeholder="تصفية النتائج المحملة…" dir="ltr"><span class="mut">${all.length}</span></div>
         <div class="tw"><table><thead><tr><th>الخدمة</th><th>ID</th><th>الاسم</th><th></th></tr></thead><tbody>
-          ${PC.cats.map((c) => `<tr><td dir="ltr">${esc(c.service)}</td><td dir="ltr">${esc(c.id)}</td><td dir="auto">${esc(c.name)}</td><td><button class="btn s ${PC.catId === c.id && PC.offSrv === c.service ? '' : 'o'}" data-a="pc_offers" data-id="${esc(c.id)}" data-srv="${esc(c.service)}">جلب العروض</button></td></tr>`).join('')}
-        </tbody></table></div>`}
+          ${list.map((c) => `<tr><td data-l="الخدمة" dir="ltr">${esc(c.service)}</td><td data-l="ID" dir="ltr">${esc(c.id)}</td><td data-l="الاسم" dir="auto">${esc(c.name)}</td><td data-l=""><button class="btn s ${PC.catId === c.id && PC.offSrv === c.service ? '' : 'o'}" data-a="pc_offers" data-id="${esc(c.id)}" data-srv="${esc(c.service)}">جلب العروض</button></td></tr>`).join('')}
+        </tbody></table></div>
+        ${all.length > list.length ? `<button class="btn o w" style="margin-top:8px" data-a="pc_more">عرض المزيد (${all.length - list.length})</button>` : ''}`; })()}
     </div>
     <div class="box">
       <div class="sec" style="margin-top:0">العروض (${PC.offers.length})${PC.catId ? ` · <span dir="ltr">${esc(PC.catId)}</span>` : ''}</div>
@@ -68,12 +72,12 @@ function catalogTab() {
       ${PC.loading && PC.cats.length && !PC.offers.length ? '<div class="empty">جارٍ التحميل…</div>' : !PC.offers.length ? '<div class="empty">اختر تصنيفاً لعرض الأسعار وتعديل الربح</div>' : `
         <div class="tw"><table><thead><tr><th>ID</th><th>العرض</th><th>التكلفة</th><th>سعر البيع</th><th>الربح</th><th>القاعدة</th><th>ربح %</th><th>ربح ثابت</th><th></th></tr></thead><tbody>
           ${PC.offers.map((o, i) => `<tr>
-            <td dir="ltr">${esc(o.id)}</td><td dir="auto">${esc(o.name)}</td>
-            <td dir="ltr">$${esc(o.cost_usd)}</td><td dir="ltr"><b>${esc(fmtMoney(o.price_usd))}</b></td><td dir="ltr">$${esc(Number(o.profit_usd).toFixed(4))}</td>
-            <td><span class="tag ${o.rule.scope === 'product' ? 'ok' : ''}">${tag(o.rule.scope)}</span></td>
-            <td><input id="pct_${i}" value="${esc(o.rule.percent)}" style="width:70px" dir="ltr" inputmode="decimal"></td>
-            <td><input id="fix_${i}" value="${esc(o.rule.fixed_usd)}" style="width:70px" dir="ltr" inputmode="decimal"></td>
-            <td style="white-space:nowrap"><button class="btn s" data-a="pc_price" data-pid="${esc(o.pid)}" data-idx="${i}">حفظ</button>${o.rule.scope === 'product' ? ` <button class="btn s o" data-a="pc_rm" data-pid="${esc(o.pid)}">إزالة قاعدة المنتج</button>` : ''}</td>
+            <td data-l="ID" dir="ltr">${esc(o.id)}</td><td data-l="العرض" dir="auto">${esc(o.name)}</td>
+            <td data-l="التكلفة" dir="ltr">$${esc(o.cost_usd)}</td><td data-l="سعر البيع" dir="ltr"><b>${esc(fmtMoney(o.price_usd))}</b></td><td data-l="الربح" dir="ltr">$${esc(Number(o.profit_usd).toFixed(4))}</td>
+            <td data-l="القاعدة"><span class="tag ${o.rule.scope === 'product' ? 'ok' : ''}">${tag(o.rule.scope)}</span></td>
+            <td data-l="ربح %"><input id="pct_${i}" value="${esc(o.rule.percent)}" style="width:70px" dir="ltr" inputmode="decimal"></td>
+            <td data-l="ربح ثابت"><input id="fix_${i}" value="${esc(o.rule.fixed_usd)}" style="width:70px" dir="ltr" inputmode="decimal"></td>
+            <td data-l="" style="white-space:nowrap"><button class="btn s" data-a="pc_price" data-pid="${esc(o.pid)}" data-idx="${i}">حفظ</button>${o.rule.scope === 'product' ? ` <button class="btn s o" data-a="pc_rm" data-pid="${esc(o.pid)}">إزالة قاعدة المنتج</button>` : ''}</td>
           </tr>`).join('')}
         </tbody></table></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:10px"><label class="fld" style="margin:0"><span>ربح % لكل العروض</span><input id="bulk_pct" value="0" style="width:90px" dir="ltr" inputmode="decimal"></label><label class="fld" style="margin:0"><span>ربح ثابت</span><input id="bulk_fix" value="0" style="width:90px" dir="ltr" inputmode="decimal"></label><button class="btn" data-a="pc_bulk">تطبيق على كل عروض التصنيف</button></div>`}
@@ -148,14 +152,15 @@ const H = {
   retry: () => load(),
   tab: (b) => { A.tab = b.dataset.k; load(); },
   pc_cats: async () => {
-    PC.service = $('#pc_srv')?.value || PC.service; PC.q = $('#pc_q')?.value.trim() || '';
-    PC.err = ''; PC.loading = true; PC.catId = ''; PC.offers = []; paint();
+    PC.service = $('#pc_srv')?.value || PC.service; PC.q = $('#pc_q')?.value.trim() || ''; PC.f = ''; PC.show = 40;
+    PC.err = ''; PC.loading = true; PC.catId = ''; PC.offers = []; PC.cats = []; PC.stats = []; paint();
     const targets = PC.service === 'all' ? SVC_LIST.map((x) => x[0]) : [PC.service];
-    const res = await Promise.allSettled(targets.map(async (srv) => { const qs = new URLSearchParams({ service: srv }); if (PC.q) qs.set('q', PC.q); return ((await api(`/admin/provider/categories?${qs}`))?.items || []).map((c) => ({ ...c, service: srv })); }));
-    PC.cats = res.flatMap((x) => (x.status === 'fulfilled' ? x.value : []));
+    const res = await Promise.allSettled(targets.map(async (srv) => { const qs = new URLSearchParams({ service: srv }); if (PC.q) qs.set('q', PC.q); const r = await api(`/admin/provider/categories?${qs}`); return { srv, r }; }));
+    for (const x of res) if (x.status === 'fulfilled') { const { srv, r } = x.value; PC.cats.push(...(r.items || []).map((c) => ({ ...c, service: srv }))); PC.stats.push({ service: srv, shown: (r.items || []).length, total: r.total, complete: r.complete }); }
     PC.err = res.map((x, i) => (x.status === 'rejected' ? `${targets[i]}: ${fmtErr(x.reason)}` : '')).filter(Boolean).join(' | ') || (PC.cats.length ? '' : tt('لا توجد تصنيفات مطابقة'));
     PC.loading = false; paint();
   },
+  pc_more: () => { PC.show += 60; paint(); },
   pc_offers: async (b) => { PC.catId = b.dataset.id; PC.offSrv = b.dataset.srv; await pcLoadOffers(); },
   pc_rule: (b) => guard(b, async () => {
     const i = b.dataset.i; const percent = $(`#rp_${i}`)?.value.trim(), fixed_usd = $(`#rf_${i}`)?.value.trim(); const num = /^\d{1,5}(\.\d{1,2})?$/;
@@ -194,6 +199,7 @@ const H = {
 
 document.addEventListener('lamha:lang', () => { closeM(); paint(); });
 document.addEventListener('lamha:expired', () => { A.me = null; closeM(); paint(); toast(tt('انتهت الجلسة، سجّل الدخول من جديد'), true); });
+document.addEventListener('input', (e) => { if (e.target.id !== 'pc_f') return; const pos = e.target.selectionStart; PC.f = e.target.value; PC.show = 40; paint(); const el = $('#pc_f'); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch { /* ignore */ } } });
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-a]'); if (b && H[b.dataset.a]) H[b.dataset.a](b, e); });
 
 async function boot(fromLogin = false) {

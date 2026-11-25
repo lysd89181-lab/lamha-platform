@@ -327,14 +327,33 @@ function activeRule(rules: any[], service: string, pid: string) {
   const r = rules.find(x => x.scope === "product" && x.scope_key === pid) || rules.find(x => x.scope === "service" && x.scope_key === service) || rules.find(x => x.scope === "global");
   return r ? { scope: r.scope, percent: Number(r.percent), fixed_usd: Number(r.fixed_usd) } : { scope: null, percent: 0, fixed_usd: 0 };
 }
+// Loads EVERY category (not just the first page). Order of preference:
+//  1) documented cursor pagination: follow `next_cursor` while the provider returns it;
+//  2) provider returns `total` but no cursor (what the real category endpoints do): try the next page with cursor = last id. This is VERIFIED, not assumed:
+//     if a page brings no new ids (provider ignored the cursor) or the call errors, we stop and report `complete:false` with the real counts.
+// Bounded: <= 15 provider calls per service (provider limit: 30/min), each page cached 5 minutes.
 export async function adminProviderCategories(e: Env, url: URL, f: typeof fetch = fetch) {
   const service = url.searchParams.get("service") || ""; const sh = SHOP[service]; if (!sh) throw new HttpError(400, "bad_service");
   let c: ReturnType<typeof catMap>; try { c = catMap(e, service); } catch (x) { throw rscToHttp(x); }
-  const q = url.searchParams.get("q")?.trim().slice(0, 60) || undefined;
-  let j: any; try { j = await rscCached(e, sh.cats, { q, limit: 60 }, 30_000, f); } catch (x) { throw rscToHttp(x); }
-  const raw = listOf(j, c.list).slice(0, 60); const ok = raw.filter((x: any) => x && typeof x[c.id] === "string" && x[c.id]);
-  if (raw.length && !ok.length) throw new HttpError(502, "unexpected_provider_shape");
-  return json({ total: j?.total ?? ok.length, items: ok.map((x: any) => ({ id: String(x[c.id]), name: String(x[c.name] ?? x[c.id]) })) });
+  const q = url.searchParams.get("q")?.trim().slice(0, 60) || undefined; const MAX_PAGES = 15;
+  const seen = new Map<string, { id: string; name: string }>(); let cursor: string | undefined; let total: number | null = null; let stopped = false; let pages = 0;
+  for (let p = 0; p < MAX_PAGES; p++) {
+    let j: any;
+    try { j = await rscCached(e, sh.cats, { q, limit: 100, cursor }, 300_000, f); } catch (x) { if (p === 0) throw rscToHttp(x); stopped = true; break; } // later pages may fail: keep what we have
+    pages++; const raw = listOf(j, c.list); const ok = raw.filter((x: any) => x && typeof x[c.id] === "string" && x[c.id]);
+    if (raw.length && !ok.length) { if (p === 0) throw new HttpError(502, "unexpected_provider_shape"); stopped = true; break; }
+    const before = seen.size; for (const x of ok) seen.set(x[c.id], { id: String(x[c.id]), name: String(x[c.name] ?? x[c.id]) });
+    if (typeof j?.total === "number") total = j.total;
+    if (j?.next_cursor != null && String(j.next_cursor) !== cursor) { cursor = String(j.next_cursor); continue; } // 1) documented
+    if (j?.has_more === true) { stopped = true; break; } // more exists but no cursor to reach it
+    if (total != null && seen.size < total && ok.length) {
+      if (p > 0 && seen.size === before) { stopped = true; break; } // 2) the probe made no progress: provider ignores cursor
+      cursor = String(ok[ok.length - 1][c.id]); continue;
+    }
+    break;
+  }
+  const items = [...seen.values()]; const complete = !stopped && (total == null || items.length >= total);
+  return json({ total: total ?? items.length, items, complete, pages });
 }
 export async function adminProviderOffers(e: Env, url: URL, f: typeof fetch = fetch) {
   const service = url.searchParams.get("service") || ""; const id = url.searchParams.get("id") || ""; const sh = SHOP[service];

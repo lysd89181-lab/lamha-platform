@@ -47,3 +47,34 @@ test("bulk rule: one atomic upsert for many products, validated and audited", as
   for (const bad of [{ keys: [], percent: "1" }, { keys: ["top_ups:a"], percent: "-1" }, { keys: ["top_ups:a"], percent: "1.234" }, { keys: ["x y:a"], percent: "1" }, { keys: ["top_ups:a;drop"], percent: "1" }, { keys: Array.from({ length: 101 }, (_, i) => "top_ups:p" + i), percent: "1" }]) await assert.rejects(post(bad), (e: any) => e.status === 400, JSON.stringify(bad).slice(0, 60));
 });
 test("bulk rule needs the pricing permission", async () => { install(); role = [{ role: "admin", permissions: ["orders"] }]; await assert.rejects(adminExtra(E, U, new Request("https://l/api/admin/pricing/bulk", { method: "POST", body: "{}" }), "admin/pricing/bulk")!, (e: any) => e.status === 403); });
+
+// ---------- full category loading (the provider has 600+ categories, pages of 100) ----------
+const ids = (n: number) => Array.from({ length: n }, (_, i) => "c" + String(i).padStart(3, "0"));
+const row = (id: string) => ({ category_id: id, name: "Cat " + id, image: "/api/media/x.webp" });
+const catFetch = (handler: (cursor: string | null, limit: string | null) => { status?: number; body: any }) => { clearRscCache(); calls = []; role = [{ role: "admin", permissions: ["pricing"] }];
+  (globalThis as any).fetch = async (u: string, i: any = {}) => { calls.push({ url: u, method: i.method || "GET", body: null }); if (u.includes("user_roles")) return j(role);
+    const x = new URL(u); const r = handler(x.searchParams.get("cursor"), x.searchParams.get("limit")); return j(r.body, r.status || 200); }; };
+const all250 = ids(250);
+test("categories: follows the DOCUMENTED cursor chain until next_cursor is null", async () => {
+  catFetch((cur) => { const start = cur === null ? 0 : cur === "p2" ? 100 : 200; const data = all250.slice(start, start + 100).map(row); return { body: { object: "list", total: 250, data, has_more: start + 100 < 250, next_cursor: start + 100 < 250 ? "p" + (start / 100 + 2) : null } }; });
+  const r: any = await (await get("admin/provider/categories?service=top_ups")).json(); assert.equal(r.items.length, 250); assert.equal(r.complete, true); assert.equal(r.total, 250); assert.equal(calls.filter(c => c.url.includes("rsc.test")).length, 3);
+  assert.ok(calls.filter(c => c.url.includes("rsc.test")).every(c => new URL(c.url).searchParams.get("limit") === "100"));
+});
+test("categories: provider gives total but NO cursor (real behaviour) -> keyset probe with the last id loads everything", async () => {
+  catFetch((cur) => { const start = cur === null ? 0 : all250.indexOf(cur) + 1; return { body: { object: "list", total: 250, data: all250.slice(start, start + 100).map(row) } }; });
+  const r: any = await (await get("admin/provider/categories?service=gift_cards")).json(); assert.equal(r.items.length, 250); assert.equal(r.complete, true); assert.equal(new Set(r.items.map((x: any) => x.id)).size, 250);
+});
+test("categories: provider IGNORES the cursor -> stops after one extra call and says the list is incomplete (no loop, no duplicates)", async () => {
+  catFetch(() => ({ body: { object: "list", total: 250, data: all250.slice(0, 100).map(row) } }));
+  const r: any = await (await get("admin/provider/categories?service=top_ups")).json(); assert.equal(r.items.length, 100); assert.equal(r.complete, false); assert.equal(r.total, 250); assert.equal(calls.filter(c => c.url.includes("rsc.test")).length, 2);
+});
+test("categories: a later page failing keeps what was loaded (incomplete) instead of failing the whole fetch", async () => {
+  catFetch((cur) => (cur === null ? { body: { total: 250, data: all250.slice(0, 100).map(row) } } : { status: 400, body: { error: { type: "invalid_request", message: "bad cursor" } } }));
+  const r: any = await (await get("admin/provider/categories?service=top_ups")).json(); assert.equal(r.items.length, 100); assert.equal(r.complete, false);
+});
+test("categories: the FIRST page failing is still reported as an error", async () => {
+  catFetch(() => ({ status: 403, body: { error: { type: "forbidden", message: "key" } } })); await assert.rejects(get("admin/provider/categories?service=top_ups"), (e: any) => e.message === "forbidden");
+});
+test("categories: bounded work even if the provider keeps returning new cursors", async () => {
+  let n = 0; catFetch(() => { n++; return { body: { total: 99999, data: [row("z" + n)], next_cursor: "n" + n } }; }); const r: any = await (await get("admin/provider/categories?service=top_ups")).json(); assert.ok(calls.filter(c => c.url.includes("rsc.test")).length <= 15); assert.equal(r.complete, false);
+});

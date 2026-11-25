@@ -61,6 +61,7 @@ const DICT = {
     'اضغط جلب التصنيفات': 'Press "Fetch categories"', 'الاسم': 'Name', 'جلب العروض': 'Fetch offers', 'الأولوية: منتج ← خدمة ← عام (لا تُجمع النسب). سعر البيع = التكلفة × (1 + النسبة) + الربح الثابت.': 'Priority: product → service → global (percentages are never added). Sell price = cost × (1 + percentage) + fixed profit.',
     'اختر تصنيفاً لعرض الأسعار وتعديل الربح': 'Choose a category to see prices and edit profit', 'العرض': 'Offer', 'التكلفة': 'Cost', 'سعر البيع': 'Sell price', 'الربح': 'Profit', 'القاعدة': 'Rule', 'قاعدة منتج': 'Product rule', 'قاعدة خدمة': 'Service rule', 'قاعدة عامة': 'Global rule', 'بدون ربح': 'No profit',
     'إزالة قاعدة المنتج': 'Remove product rule', 'ربح % لكل العروض': 'Profit % for all offers', 'تطبيق على كل عروض التصنيف': 'Apply to all offers in the category', 'قيمة غير صالحة (أرقام فقط، حتى منزلتين عشريتين)': 'Invalid value (numbers only, up to two decimals)', 'تم حفظ الربح': 'Profit saved', 'تمت الإزالة': 'Removed',
+    'لم يُجلب الكل: استعمل البحث للباقي': 'Not everything was loaded: use search for the rest', 'تصفية النتائج المحملة…': 'Filter loaded results…', 'عرض المزيد': 'Show more',
     'لا توجد تصنيفات مطابقة': 'No matching categories', 'لا توجد عروض نشطة لهذا التصنيف الآن': 'No active offers in this category right now', 'إزالة قاعدة هذا المنتج؟ سيعود لقاعدة الخدمة أو العامة.': 'Remove this product rule? It will fall back to the service or global rule.', 'تطبيق هذه النسبة على كل عروض التصنيف؟': 'Apply this rate to all offers in the category?',
   },
 };
@@ -69,7 +70,7 @@ const RULES = {
     [/^طلب #(\d+)$/, 'Order #$1'], [/^طلب SHEIN #(\d+)$/, 'SHEIN order #$1'], [/^طلب #(\d+) — (.*)$/, 'Order #$1 — $2'], [/^متوفر: (\d+)$/, 'Available: $1'], [/^يُعرض (\d+) من (\d+)\. استعمل البحث للوصول لباقي التصنيفات\.$/, 'Showing $1 of $2. Use search to find other categories.'],
     [/^وفّر (\S+) \((.*)%\)$/, 'Save $1 ($2%)'], [/^(.*) · رصيد بعد: (.*)$/, '$1 · Balance after: $2'], [/^العملة التي أعادتها SHEIN: (.*) · الأسعار المعتمدة بالدولار فقط · الكميات يحددها العميل$/, 'Currency returned by SHEIN: $1 · Prices used are USD only · You choose the quantities'],
     [/^تم استلام العربون\. طلب #(\d+)$/, 'Deposit received. Order #$1'], [/^اكتب الشكوى أدناه \(طلب #(\d+)\)$/, 'Write your complaint below (order #$1)'], [/^تعذّر التنفيذ: (.*)$/, 'Action failed: $1'],
-    [/^التصنيفات \((\d+)\)$/, 'Categories ($1)'], [/^العروض \((\d+)\)(\s·)?$/, 'Offers ($1)$2'],
+    [/^التصنيفات \((\d+)\)$/, 'Categories ($1)'], [/^عرض المزيد \((\d+)\)$/, 'Show more ($1)'], [/^العروض \((\d+)\)(\s·)?$/, 'Offers ($1)$2'],
     [/^[a-z_]+: .+$/, (k) => k.split(' | ').map((p) => p.replace(/^([a-z_]+: )(.*)$/, (_m, a, b) => a + trText(b))).join(' | ')], // "service: error text" notes
   ],
 };
@@ -84,7 +85,7 @@ function trText(s) {
   return s;
 }
 const tt = trText;
-const ATTRS = ['placeholder', 'aria-label', 'title', 'alt'];
+const ATTRS = ['placeholder', 'aria-label', 'title', 'alt', 'data-l'];
 function trTree(root) {
   if (LANG === 'ar' || !root) return;
   if (root.nodeType === 3) { const v = trText(root.nodeValue); if (v !== root.nodeValue) root.nodeValue = v; return; }

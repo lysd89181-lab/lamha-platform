@@ -35,3 +35,26 @@ table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{padding:8px;bor
 .retry{text-align:center;padding:24px 0}
 
 .th.fallback{display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--mut)}
+
+/* ADMIN-MOBILE: on phones every table row becomes a card (no sideways scrolling) */
+@media (max-width:760px){
+  .wide #app{max-width:100%}
+  .wide .pg{padding:10px}
+  .wide .hd{padding:10px 12px}
+  .tw{border:0;background:transparent;overflow:visible}
+  .tw table,.tw tbody,.tw tr,.tw td{display:block;width:100%}
+  .tw thead{display:none}
+  .tw tr{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px 12px;margin-bottom:10px}
+  .tw td{display:flex;justify-content:space-between;align-items:center;gap:10px;border:0;border-bottom:1px dashed var(--line);padding:7px 0;text-align:end}
+  .tw td:last-child{border-bottom:0}
+  .tw td::before{content:attr(data-l);font-weight:700;color:var(--mut);font-size:12px;text-align:start;flex:none;max-width:45%}
+  .tw td[data-l=""]{justify-content:flex-start;flex-wrap:wrap}
+  .tw td[data-l=""]::before{display:none}
+  .tw td input{width:90px!important}
+  .tw td .btn{min-height:36px}
+  .wide .box{padding:12px}
+  .wide .fld{min-width:100%!important}
+  .wide .fld input,.wide .fld select{font-size:16px}
+}
+.pcbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.pcbar input{flex:1;min-width:140px}
