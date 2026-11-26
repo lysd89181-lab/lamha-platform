@@ -4,6 +4,11 @@ const LANG_NAME = { ar: 'عربي', en: 'EN' };
 const RTL = { ar: true };
 const DICT = {
   en: {
+    // v2 design
+    'القائمة': 'Menu', 'ابحث عن منتج أو خدمة…': 'Search for a product or service…', 'اشتراكات رقمية': 'Digital subscriptions', 'شحن الألعاب': 'Game top-up', 'خدمات أخرى': 'Other services', 'بطاقات دولية': 'International cards',
+    'هذا القسم قريباً': 'This section is coming soon', 'منتجات مميزة': 'Featured products', 'جميع التصنيفات': 'All categories', 'عرض العروض': 'View offers', 'تفاصيل الطلب': 'Order details', 'أدخل رابط سلة مشتريات SHEIN': 'Enter your SHEIN cart link',
+    'جميع الطلبات': 'All orders', 'كروت الألعاب': 'Game cards', 'البيانات الشخصية': 'Personal details', 'إعدادات الحساب': 'Account settings', 'الأمان والتحقق': 'Security & verification', 'الدعم الفني والشكاوى': 'Support & complaints',
+    'حول منصة لمحة': 'About LAMHA', 'اللغة': 'Language', 'كل ما تحتاجه في لمحة واحدة': 'Everything you need, in a glimpse', 'منصة لشراء بطاقات الهدايا وشحن الألعاب وطلبات SHEIN، مع محفظة تشحنها عبر Ezone Pay.': 'A platform for gift cards, game top-ups and SHEIN orders, with a wallet you top up via Ezone Pay.',
     // errors / toasts
     'تعذّر الاتصال بالخادم، تحقق من الإنترنت': 'Could not reach the server, check your connection', 'انتهت مهلة الطلب، حاول مرة أخرى': 'The request timed out, please try again', 'انتهت الجلسة، سجّل الدخول من جديد': 'Your session expired, please sign in again',
     'أكمل الاسم الكامل (اسمين على الأقل) ورقم الهاتف من صفحة حسابي ثم أعد المحاولة': 'Add your full name (two names at least) and phone number in My Account, then try again',
