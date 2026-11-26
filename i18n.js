@@ -5,6 +5,10 @@ const RTL = { ar: true };
 const DICT = {
   en: {
     'فاتورة الطلب': 'Order invoice', 'إجمالي المنتجات': 'Items total', 'الشحن والرسوم': 'Shipping & fees', 'المدفوع (العربون)': 'Paid (deposit)', 'التاريخ': 'Date', 'لصق': 'Paste', 'الحافظة فارغة': 'Clipboard is empty', 'تعذّر اللصق، الصق الرابط يدوياً': 'Could not paste, paste the link manually',
+    // v4 design
+    'أهلاً بك': 'Welcome', 'رصيد المحفظة': 'Wallet balance', 'شحن الرصيد': 'Top up', 'السجل': 'History', 'هدايا': 'Gifts', 'ألعاب': 'Games', 'المزيد': 'More', 'اشحن محفظتك بخطوة وحدة': 'Top up your wallet in one step', 'أضف رصيد عبر Ezone Pay واشترِ بنقرة': 'Add balance via Ezone Pay and buy in one tap', 'ابدأ': 'Start',
+    'المتجر': 'Store', 'بطاقات': 'Cards', 'شحن ألعاب': 'Game top-up', 'الرابط': 'Link', 'التأكيد': 'Confirm', 'اليوم': 'Today', 'أمس': 'Yesterday', 'تم الدفع': 'Paid', 'قيد التنفيذ': 'In progress', 'عرض الكل': 'View all',
+    'لا توجد منتجات حالياً': 'No products right now', 'جرّب قسماً آخر أو عد لاحقاً': 'Try another section or come back later', 'العربون المطلوب الآن': 'Deposit due now', 'المتبقي عند الاستلام': 'Remaining on delivery',
     // v2 design
     'القائمة': 'Menu', 'ابحث عن منتج أو خدمة…': 'Search for a product or service…', 'اشتراكات رقمية': 'Digital subscriptions', 'شحن الألعاب': 'Game top-up', 'خدمات أخرى': 'Other services', 'بطاقات دولية': 'International cards',
     'هذا القسم قريباً': 'This section is coming soon', 'منتجات مميزة': 'Featured products', 'جميع التصنيفات': 'All categories', 'عرض العروض': 'View offers', 'تفاصيل الطلب': 'Order details', 'أدخل رابط سلة مشتريات SHEIN': 'Enter your SHEIN cart link',
@@ -74,7 +78,7 @@ const DICT = {
 const RULES = {
   en: [
     [/^طلب #(\d+)$/, 'Order #$1'], [/^طلب SHEIN #(\d+)$/, 'SHEIN order #$1'], [/^طلب #(\d+) — (.*)$/, 'Order #$1 — $2'], [/^متوفر: (\d+)$/, 'Available: $1'], [/^يُعرض (\d+) من (\d+)\. استعمل البحث للوصول لباقي التصنيفات\.$/, 'Showing $1 of $2. Use search to find other categories.'],
-    [/^وفّر (\S+) \((.*)%\)$/, 'Save $1 ($2%)'], [/^(.*) · رصيد بعد: (.*)$/, '$1 · Balance after: $2'], [/^العملة التي أعادتها SHEIN: (.*) · الأسعار المعتمدة بالدولار فقط · الكميات يحددها العميل$/, 'Currency returned by SHEIN: $1 · Prices used are USD only · You choose the quantities'],
+    [/^وفّر (.+) \((.*)%\)$/, 'Save $1 ($2%)'], [/^(.*) · رصيد بعد: (.*)$/, '$1 · Balance after: $2'], [/^العملة التي أعادتها SHEIN: (.*) · الأسعار المعتمدة بالدولار فقط · الكميات يحددها العميل$/, 'Currency returned by SHEIN: $1 · Prices used are USD only · You choose the quantities'],
     [/^تم استلام العربون\. طلب #(\d+)$/, 'Deposit received. Order #$1'], [/^اكتب الشكوى أدناه \(طلب #(\d+)\)$/, 'Write your complaint below (order #$1)'], [/^تعذّر التنفيذ: (.*)$/, 'Action failed: $1'],
     [/^التصنيفات \((\d+)\)$/, 'Categories ($1)'], [/^عرض المزيد \((\d+)\)$/, 'Show more ($1)'], [/^العروض \((\d+)\)(\s·)?$/, 'Offers ($1)$2'],
     [/^[a-z_]+: .+$/, (k) => k.split(' | ').map((p) => p.replace(/^([a-z_]+: )(.*)$/, (_m, a, b) => a + trText(b))).join(' | ')], // "service: error text" notes

@@ -1,16 +1,18 @@
 /* LAMHA customer app. Every number shown comes from the server; prices are never computed or trusted client-side. */
-const st = { tab: 'shop', authMode: 'login', me: null, shop: { service: 'gift_cards', cats: null, cat: null, offers: null, q: '', err: '' }, sh: { link: '', cart: null, items: [], q: {}, quote: null, err: '' }, wallet: null, orders: null, tickets: null, ofilter: 'all', accSub: null };
-const TABS = [['shop', 'الرئيسية', 'home'], ['shein', 'SHEIN', 'bag'], ['wallet', 'المحفظة', 'wallet'], ['orders', 'طلباتي', 'box'], ['acc', 'حسابي', 'user']];
-const SVC = { gift_cards: 'بطاقات الهدايا', top_ups: 'شحن الألعاب المباشر' };
+const st = { tab: 'home', seg: 'cards', authMode: 'login', me: null, shop: { service: 'gift_cards', cats: null, cat: null, offers: null, q: '', err: '' }, sh: { link: '', cart: null, items: [], q: {}, quote: null, err: '' }, wallet: null, orders: null, tickets: null, ofilter: 'all', accSub: null };
 const VER = { unverified: 'غير موثق', pending: 'قيد المراجعة', verified: 'موثق', rejected: 'مرفوض' };
-const head = (bell = true) => `<div class="lh">${bell ? `<button class="ib" data-a="menu" aria-label="القائمة">${ic('menu')}</button>` : '<span class="ib"></span>'}<img src="logo.png" alt="لمحة LAMHA" data-notr="1">${bell ? `<span class="lg">${langBtn()}<button class="ib" data-a="notifs" aria-label="الإشعارات">${ic('bell')}</button></span>` : '<span class="ib"></span>'}</div>`;
-const tbar = (title, a = 'tab', k = 'shop') => `<div class="tb"><button class="ib bk" data-a="${a}" data-k="${k}" aria-label="رجوع">${ic('back')}</button><b>${title}</b><button class="ib" data-a="notifs" aria-label="الإشعارات">${ic('bell')}</button></div>`;
+const head = () => `<div class="hl"><img src="logo.png" alt="لمحة LAMHA" data-notr="1"><span class="lg">${langBtn()}<button class="bell" data-a="notifs" aria-label="الإشعارات">${ic('bell')}</button></span></div>`;
+const authHead = () => `<div class="lh"><span class="ib"></span><img src="logo.png" alt="لمحة LAMHA" data-notr="1"><span class="ib"></span></div>`;
+const tbar = (title, a, k) => `<div class="tt"><div class="tl2">${a ? `<button class="bk" data-a="${a}" data-k="${k || ''}" aria-label="رجوع">${ic('back')}</button>` : ''}<b>${title}</b></div><button class="bell dkb" data-a="notifs" aria-label="الإشعارات">${ic('bell')}</button></div>`;
 const mS = (n) => mny(n, st.shop.service), mSh = (n) => mny(n, 'shein'), mW = (n) => mny(n, 'wallet');
-const TILES = [['soon', 'اشتراكات رقمية', 'game'], ['svc:gift_cards', 'بطاقات الهدايا', 'gift'], ['svc:top_ups', 'شحن الألعاب', 'crown'], ['tab:shein', 'SHEIN', 'S'], ['soon', 'خدمات أخرى', 'grid'], ['soon', 'بطاقات دولية', 'globe']];
+const nm = () => st.me?.profile?.full_name || (st.me?.email || '').split('@')[0] || '';
+const artOf = (c) => c.image ? `<img class="th art" src="${esc(c.image)}" alt="" data-n="${esc(c.name)}" referrerpolicy="no-referrer">` : `<div class="th art fallback ini" style="--h:${(c.name.charCodeAt(0) * 47) % 360}">${esc(c.name.trim().charAt(0).toUpperCase())}</div>`;
+const catCard = (c, a = 'cat') => `<button class="pcd" data-a="${a}" data-id="${esc(c.id)}">${artOf(c)}<span class="pi"><span class="pn" dir="auto">${esc(c.name)}</span><span class="pp"><b>عرض العروض</b><i>${ic('chev')}</i></span></span></button>`;
+const segBar = (items, cur, a) => `<div class="seg">${items.map(([k, n]) => `<button class="${cur === k ? 'on' : ''}" data-a="${a}" data-k="${k}">${n}</button>`).join('')}</div>`;
 
 function authView() {
   const m = st.authMode; const title = { login: 'تسجيل الدخول', signup: 'إنشاء حساب', forgot: 'استعادة كلمة المرور' }[m];
-  return `${head(false)}<div class="pg"><div class="top" style="padding:0 0 12px">${title}</div>
+  return `${authHead()}<div class="pg"><div class="top" style="padding:0 0 12px">${title}</div>
   <label class="fld"><span>البريد الإلكتروني</span><input id="em" type="email" autocomplete="email" dir="ltr"></label>
   ${m !== 'forgot' ? `<label class="fld"><span>كلمة المرور</span><input id="pw" type="password" autocomplete="${m === 'login' ? 'current-password' : 'new-password'}" dir="ltr"></label>` : ''}
   <button class="btn w" data-a="authgo">${title}</button><div style="margin-top:14px;display:flex;gap:14px;justify-content:center" class="mut">
@@ -21,20 +23,27 @@ async function loadMe() { try { st.me = await api('/me'); } catch { st.me = null
 /* ---------- shop ---------- */
 async function loadCats() { const s = st.shop; s.cats = null; s.cat = null; s.offers = null; s.err = ''; paint(); try { const r = await api('/shop/categories?service=' + s.service + (s.q.trim() ? '&q=' + encodeURIComponent(s.q.trim()) : '')); s.cats = r.items; s.total = r.total; } catch (e) { s.err = errMsg(e); s.cats = []; } paint(); }
 async function loadOffers(id) { const s = st.shop; s.cat = id; s.offers = null; paint(); try { const r = await api(`/shop/offers?service=${s.service}&id=${encodeURIComponent(id)}`); s.offers = r.offers; s.fields = r.fields || []; } catch (e) { s.err = errMsg(e); s.offers = []; } paint(); }
-function shopView() {
-  const s = st.shop; let body = '';
+function homeView() {
+  const w = st.wallet, cats = (st.shop.cats || []).slice(0, 6);
+  return `<div class="hero2">${head()}<div class="hi"><span>أهلاً بك</span><b>${esc(nm())}</b></div>
+  <div class="bal"><div class="bt"><div><small>رصيد المحفظة</small><h2>${w ? mW(w.balance) : '…'}</h2></div><div class="ey">${ic('wallet')}</div></div>
+  <div class="bb"><button class="b1" data-a="tab" data-k="wallet">${ic('bolt')} شحن الرصيد</button><button class="b2" data-a="tab" data-k="wallet">${ic('stack')} السجل</button></div></div></div>
+  <div class="bd"><div class="qa"><button data-a="qgo" data-k="cards"><span>${ic('gift')}</span>هدايا</button><button data-a="qgo" data-k="games"><span>${ic('game')}</span>ألعاب</button><button data-a="qgo" data-k="shein"><span class="s">S</span>SHEIN</button><button data-a="soon"><span>${ic('grid')}</span>المزيد</button></div>
+  <button class="sr" data-a="qgo" data-k="cards">${ic('search')}<em>ابحث عن منتج أو خدمة…</em></button>
+  ${cats.length ? `<div class="sh"><b>منتجات مميزة</b><button data-a="qgo" data-k="${st.shop.service === 'top_ups' ? 'games' : 'cards'}">عرض الكل</button></div><div class="rail">${cats.map((c) => catCard(c, 'catgo')).join('')}</div>` : ''}
+  <div class="promo"><div><b>اشحن محفظتك بخطوة وحدة</b><small>أضف رصيد عبر Ezone Pay واشترِ بنقرة</small></div><button data-a="tab" data-k="wallet">ابدأ</button></div></div>`;
+}
+function storeView() {
+  const s = st.shop; const g = st.seg; let body = '';
+  const top = `${tbar('المتجر')}${segBar([['cards', 'بطاقات'], ['games', 'شحن ألعاب'], ['shein', 'SHEIN']], g, 'seg')}`;
+  if (g === 'shein') return `${top}<div class="bd">${sheinBody()}</div>`;
   const offerRow = (o) => `<div class="row"><div class="g"><b>${esc(o.name)}</b><div class="mut">${o.available ? (o.stock != null ? 'متوفر: ' + o.stock : 'متوفر') : 'نفد المخزون'}</div></div><div style="text-align:left"><b>${mS(o.price_usd)}</b><br><button class="btn s" data-a="buy" data-id="${esc(o.id)}" ${o.available ? '' : 'disabled'}>شراء</button></div></div>`;
-  const catRow = (c) => `<button class="row" style="width:100%;text-align:right" data-a="cat" data-id="${esc(c.id)}">${c.image ? `<img class="th" src="${esc(c.image)}" alt="" data-n="${esc(c.name)}" referrerpolicy="no-referrer" style="width:44px;height:44px">` : ''}<span class="g"><b>${esc(c.name)}</b></span></button>`;
-  const feat = (c) => `<div class="pc">${c.image ? `<img class="th pimg" src="${esc(c.image)}" alt="" data-n="${esc(c.name)}" referrerpolicy="no-referrer">` : `<div class="th pimg fallback">${esc(c.name.trim().charAt(0).toUpperCase())}</div>`}<b class="pn">${esc(c.name)}</b><button class="pb" data-a="cat" data-id="${esc(c.id)}">عرض العروض ${ic('cart')}</button></div>`;
   if (s.err) body = `<div class="note">${esc(s.err)}</div>`;
-  else if (s.cat != null) body = `<button class="btn o s" data-a="catback">رجوع</button><div class="sec">العروض</div>` + (s.offers == null ? '<div class="empty">جارٍ التحميل…</div>' : s.offers.length ? s.offers.map(offerRow).join('') : '<div class="empty">لا توجد باقات نشطة لهذه الفئة الآن.<br>جرّب فئة بديلة من نفس اللعبة (مثل manual أو reserve) بالرجوع للقائمة.</div>');
-  else if (s.cats == null) body = '<div class="empty">جارٍ التحميل…</div>';
-  else if (!s.cats.length) body = '<div class="empty">لا توجد نتائج</div>';
-  else body = (s.total > s.cats.length ? `<div class="mut" style="margin-bottom:8px">يُعرض ${s.cats.length} من ${s.total}. استعمل البحث للوصول لباقي التصنيفات.</div>` : '') + `<div class="sh"><b>منتجات مميزة</b></div><div class="pgrid">${s.cats.slice(0, 3).map(feat).join('')}</div>` + (s.cats.length > 3 ? `<div class="sh"><b>جميع التصنيفات</b></div>${s.cats.slice(3).map(catRow).join('')}` : '');
-  const tiles = TILES.map(([k, n, i]) => { const [t, v] = k.split(':'); const on = t === 'svc' && s.service === v; const a = t === 'svc' ? `data-a="svc" data-k="${v}"` : t === 'tab' ? `data-a="tab" data-k="${v}"` : 'data-a="soon"'; return `<button class="tile ${on ? 'on' : ''} ${t === 'soon' ? 'soon' : ''}" ${a}><span class="tg">${i === 'S' ? '<b class="sl">S</b>' : ic(i)}</span>${n}</button>`; }).join('');
-  return `<div class="hero">${head()}<div class="ban2"><div class="bt"><b>اشحن رصيدك واستمتع بمشترياتك الرقمية!</b><button class="pill" data-a="tab" data-k="wallet">ابدأ الآن ${ic('bolt')}</button></div><div class="bc" aria-hidden="true"><i class="c1">STEAM</i><i class="c2">PlayStation</i><i class="c3">Google Play</i></div></div></div>
-  <div class="sheet">${s.cat == null ? `<label class="srch">${ic('search')}<input id="sq" placeholder="ابحث عن منتج أو خدمة…" value="${esc(s.q)}"></label>` : ''}
-  ${s.cat == null ? `<div class="sh"><b>أقسام المنتجات</b></div><div class="tiles">${tiles}</div>` : ''}${body}</div>`;
+  else if (s.cat != null) body = `<button class="btn o s" data-a="catback">رجوع</button><div class="sec">العروض</div>` + (s.offers == null ? '<div class="skg"><i></i><i></i></div>' : s.offers.length ? s.offers.map(offerRow).join('') : '<div class="empty">لا توجد باقات نشطة لهذه الفئة الآن.<br>جرّب فئة بديلة من نفس اللعبة (مثل manual أو reserve) بالرجوع للقائمة.</div>');
+  else if (s.cats == null) body = '<div class="skg"><i></i><i></i><i></i><i></i></div>';
+  else if (!s.cats.length) body = `<div class="empty big"><span class="ei">${ic('stack')}</span><b>لا توجد منتجات حالياً</b><span class="mut">جرّب قسماً آخر أو عد لاحقاً</span></div>`;
+  else body = (s.total > s.cats.length ? `<div class="mut" style="margin-bottom:8px">يُعرض ${s.cats.length} من ${s.total}. استعمل البحث للوصول لباقي التصنيفات.</div>` : '') + `<div class="grid2">${s.cats.map((c) => catCard(c)).join('')}</div>`;
+  return `${top}<div class="bd">${s.cat == null ? `<label class="sr w">${ic('search')}<input id="sq" placeholder="ابحث عن منتج أو خدمة…" value="${esc(s.q)}"></label>` : ''}${body}</div>`;
 }
 function buyModal(o) {
   const key = uuid(); const max = Math.max(1, Math.min(o.max || 100, o.stock ?? 100)); const direct = st.shop.service === 'top_ups';
@@ -45,39 +54,49 @@ function buyModal(o) {
 }
 
 /* ---------- SHEIN ---------- */
-function sheinView() {
-  const s = st.sh; let h = `<div class="hero sheinh">${head()}<div class="sbn"><b>SHEIN</b><span>Shop the latest styles</span></div></div><div class="sheet"><div class="note">أسعار SHEIN لقطة من السلة وقت القراءة وغير مضمونة. السعر النهائي يُؤكَّد قبل الطلب، ولا يمكن تعديل الطلب بعد دفع العربون.</div>
-  <label class="srch lnk">${ic('link')}<input id="shl" dir="ltr" value="${esc(s.link)}" placeholder="https://onelink.shein.com/..." aria-label="أدخل رابط سلة مشتريات SHEIN"><button class="pst" data-a="paste">لصق</button></label><div class="mut" style="margin:-4px 4px 10px">رابط مشاركة سلة SHEIN</div><button class="btn w rd" data-a="shcart">قراءة السلة</button>`;
+function sheinBody() {
+  const s = st.sh; const step = s.quote ? 3 : s.cart ? 2 : 1; const cl = (n) => (step > n ? 'on' : step === n ? 'cur' : '');
+  let h = `<div class="stps"><div class="d ${cl(1)}"><i>${ic('link', 14, 2.4)}</i><span>الرابط</span></div><u class="${step > 1 ? 'on' : ''}"></u><div class="d ${cl(2)}"><i>${ic('cart', 14, 2.4)}</i><span>السلة</span></div><u class="${step > 2 ? 'on' : ''}"></u><div class="d ${cl(3)}"><i>3</i><span>التأكيد</span></div></div>
+  <div class="note">أسعار SHEIN لقطة من السلة وقت القراءة وغير مضمونة. السعر النهائي يُؤكَّد قبل الطلب، ولا يمكن تعديل الطلب بعد دفع العربون.</div>
+  <label class="lnk">${ic('link')}<input id="shl" dir="ltr" value="${esc(s.link)}" placeholder="https://onelink.shein.com/..." aria-label="أدخل رابط سلة مشتريات SHEIN"><button class="pst" data-a="paste">لصق</button></label><button class="btn w rd" data-a="shcart">قراءة السلة</button>`;
   if (s.err) h += `<div class="err">${esc(s.err)}</div>`;
   if (s.cart) {
-    h += `<div class="sec">${esc(s.cart.title || 'السلة')}</div><div class="mut" style="margin-bottom:8px">العملة التي أعادتها SHEIN: ${esc(s.cart.currency?.shown || '؟')} · الأسعار المعتمدة بالدولار فقط · الكميات يحددها العميل</div>`;
-    h += s.items.map((i) => { const q = s.q[i.key] || 0; return `<div class="row">${i.image ? `<img class="th" src="${esc(i.image)}" alt="" referrerpolicy="no-referrer">` : '<div class="th"></div>'}<div class="g"><b>${esc(i.name)}</b><div class="mut">${esc(i.attr)}</div>
-      ${i.unitUsdCents != null ? `<div><b>${mSh(i.unitUsdCents / 100)}</b> ${i.savingsUsdCents ? `<s class="mut">${mSh(i.originalUsdCents / 100)}</s> <span class="tag ok">وفّر ${mSh(i.savingsUsdCents / 100)} (${esc(i.discountPercent)}%)</span>` : ''}</div>${i.savingsUsdCents ? '<div class="mut">مصدر الخصم غير مؤكد (قد لا يكون متاحاً للجميع)</div>' : ''}` : '<div class="mut">لا يتوفر سعر بالدولار</div>'}
+    h += `<div class="sec">${esc(s.cart.title || 'السلة')}</div>`;
+    h += s.items.map((i) => { const q = s.q[i.key] || 0; return `<div class="shc">${i.image ? `<img class="th im" src="${esc(i.image)}" alt="" referrerpolicy="no-referrer">` : '<div class="th im"></div>'}<div class="g"><b>${esc(i.name)}</b><div class="mut">${esc(i.attr)}</div>
+      ${i.unitUsdCents != null ? `<div><b>${mSh(i.unitUsdCents / 100)}</b> ${i.savingsUsdCents ? `<s class="mut">${mSh(i.originalUsdCents / 100)}</s> <span class="tag ok">وفّر ${mSh(i.savingsUsdCents / 100)} (${esc(i.discountPercent)}%)</span>` : ''}</div>` : '<div class="mut">لا يتوفر سعر بالدولار</div>'}
       ${i.orderable ? `<div class="q" style="margin-top:6px"><button data-a="qm" data-k="${esc(i.key)}">−</button><b>${q}</b><button data-a="qp" data-k="${esc(i.key)}">+</button></div>` : `<span class="tag bad">${i.orderableReason === 'sold_out' ? 'نفد' : i.orderableReason === 'unavailable' ? 'غير متوفر' : 'غير قابل للطلب'}</span>`}</div></div>`; }).join('');
-    h += `<button class="btn w" data-a="shquote">احسب الإجمالي</button>`;
+    h += `<button class="btn w rd" data-a="shquote">احسب الإجمالي</button>`;
   }
-  if (s.quote) { const t = s.quote; h += `<div class="qb"><div class="qh">تفاصيل الطلب</div>${t.items.map((i) => `<div class="kv"><span>${esc(i.name)} ×${i.qty}</span><span>${mSh(i.unit_price * i.qty)}</span></div>`).join('')}
-    <div class="kv"><span>الشحن</span><span>${mSh(t.shipping)}</span></div><div class="kv"><span>الرسوم</span><span>${mSh(t.fees)}</span></div><div class="kv t"><span>الإجمالي</span><span>${mSh(t.total)}</span></div></div>
-    <div class="dep"><span class="di">${ic('wallet')}</span><div class="g"><div class="mut">العربون المطلوب الآن</div><b>${mSh(t.deposit)}</b></div><div style="text-align:end"><div class="mut">المتبقي عند الاستلام</div><b>${mSh(t.remaining)}</b></div></div>
-    <div class="mut" style="margin-bottom:8px">إلغاء الطلب قبل الشراء: العربون غير مسترد. عند فشل الطلب يُعاد العربون لمحفظتك تلقائياً.</div><button class="btn w" data-a="shorder" data-key="${uuid()}">تأكيد الطلب ودفع العربون من المحفظة</button>`; }
-  return h + '</div>';
+  if (s.quote) { const t = s.quote; const pc = t.total > 0 ? Math.min(100, Math.round((t.deposit / t.total) * 100)) : 0;
+    h += `<div class="inv"><div class="qh">تفاصيل الطلب</div>${t.items.map((i) => `<div class="kv"><span>${esc(i.name)} ×${i.qty}</span><b>${mSh(i.unit_price * i.qty)}</b></div>`).join('')}
+    <div class="kv"><span>الشحن</span><b>${mSh(t.shipping)}</b></div><div class="kv"><span>الرسوم</span><b>${mSh(t.fees)}</b></div><div class="kv t"><span>الإجمالي</span><b>${mSh(t.total)}</b></div></div>
+    <div class="split"><div class="bar"><i style="width:${pc}%"></i></div><div class="sp"><div><small>العربون المطلوب الآن</small><b>${mSh(t.deposit)}</b></div><div><small>المتبقي عند الاستلام</small><b class="mu">${mSh(t.remaining)}</b></div></div></div>
+    <div class="mut" style="margin:10px 4px">إلغاء الطلب قبل الشراء: العربون غير مسترد. عند فشل الطلب يُعاد العربون لمحفظتك تلقائياً.</div><button class="cta" data-a="shorder" data-key="${uuid()}">${ic('bolt', 20, 2.2)} تأكيد الطلب ودفع العربون من المحفظة</button>`; }
+  return h;
 }
 const quantities = () => Object.fromEntries(Object.entries(st.sh.q).filter(([, v]) => v > 0));
 
 /* ---------- wallet / orders / account ---------- */
 async function loadWallet() { st.walletErr = false; try { st.wallet = await api('/wallet'); } catch (e) { st.walletErr = true; if (e.error !== 'session_expired') toast(errMsg(e), true); } paint(); }
 function walletView() {
-  const w = st.wallet; const KIND = { deposit: 'إيداع', debit: 'خصم', refund: 'استرداد' };
-  return `${tbar('المحفظة')}<div class="pg"><div class="wc"><div class="wr"><div><div class="wl">رصيدك الحالي</div><div class="wb">${w ? mW(w.balance) : '…'}</div></div><span class="wi">${ic('wallet')}</span></div>
-  <label class="wf"><span>مبلغ الشحن (USD)</span><input id="ta" inputmode="decimal" dir="ltr" placeholder="10.00"><small id="tah" class="mut"></small></label><button class="wbtn" data-a="topup">شحن المحفظة عبر Ezone Pay ${ic('bolt')}</button></div>
-  <div class="mut" style="margin:-4px 4px 4px">يُضاف الرصيد تلقائياً فقط بعد تأكيد الدفع من Ezone Pay، وليس بمجرد العودة للموقع.</div><div class="sec">سجل العمليات</div>
-  ${st.walletErr && !w ? '<div class="retry"><button class="btn o" data-a="reload">إعادة المحاولة</button></div>' : ''}${w ? (w.transactions.length ? w.transactions.map((t) => { const dn = t.kind === 'debit'; return `<div class="row tx"><span class="ti ${dn ? 'dn' : 'up'}">${ic(dn ? 'down' : 'up')}</span><div class="g"><b>${KIND[t.kind] || t.kind}</b><div class="mut">${fmtDate(t.created_at)} · رصيد بعد: ${mW(t.balance_after)}</div></div><b class="${dn ? 'neg' : 'pos'}" dir="ltr">${dn ? '-' : '+'}${mW(t.amount)}</b></div>`; }).join('') : '<div class="empty">لا توجد عمليات</div>') : ''}</div>`;
+  const w = st.wallet; const KIND = { deposit: 'إيداع', debit: 'خصم', refund: 'استرداد' }; const L = typeof locale === 'function' ? locale() : 'ar';
+  const dayLbl = (iso) => { const d = new Date(iso), n = new Date(), y = new Date(n - 864e5); const k = (x) => x.toDateString(); return k(d) === k(n) ? 'اليوم' : k(d) === k(y) ? 'أمس' : d.toLocaleDateString(L, { dateStyle: 'medium' }); };
+  let last = ''; const rows = w ? w.transactions.map((t) => { const dn = t.kind === 'debit'; const dl = dayLbl(t.created_at); const hd = dl !== last ? `<div class="dy">${dl}</div>` : ''; last = dl;
+    return `${hd}<div class="txr"><i class="${dn ? 'dn' : 'up'}">${ic(dn ? 'down' : 'up', 20, 2.2)}</i><div class="g"><b>${KIND[t.kind] || t.kind}</b><small>${new Date(t.created_at).toLocaleTimeString(L, { timeStyle: 'short' })}</small></div><span class="${dn ? 'neg' : 'pos'}" dir="ltr">${dn ? '−' : '+'}${mW(t.amount)}</span></div>`; }).join('') : '';
+  return `<div class="hero2 s2"><div class="tt l"><div class="tl2"><button class="bk w" data-a="tab" data-k="home" aria-label="رجوع">${ic('back')}</button><b>المحفظة</b></div><button class="bell" data-a="notifs" aria-label="الإشعارات">${ic('bell')}</button></div>
+  <div class="bal"><div class="bt"><div><small>رصيدك الحالي</small><h2>${w ? mW(w.balance) : '…'}</h2></div><div class="ey">${ic('wallet')}</div></div>
+  <label class="amt"><span>مبلغ الشحن (USD)</span><input id="ta" inputmode="decimal" dir="ltr" placeholder="10.00"></label><div class="mut2" id="tah"></div>
+  <div class="qs">${[10, 25, 50, 100].map((v) => `<button data-a="chip" data-v="${v}">${v}$</button>`).join('')}</div><button class="b1 full" data-a="topup">${ic('bolt', 18, 2.2)} شحن المحفظة عبر Ezone Pay</button></div></div>
+  <div class="bd"><div class="mut" style="margin:0 4px 8px">يُضاف الرصيد تلقائياً فقط بعد تأكيد الدفع من Ezone Pay، وليس بمجرد العودة للموقع.</div>
+  ${st.walletErr && !w ? '<div class="retry"><button class="btn o" data-a="reload">إعادة المحاولة</button></div>' : ''}${w ? (w.transactions.length ? rows : '<div class="empty">لا توجد عمليات</div>') : ''}</div>`;
 }
 async function loadOrders() { st.ordersErr = false; try { st.orders = await api('/orders'); } catch (e) { st.ordersErr = true; if (e.error !== 'session_expired') toast(errMsg(e), true); } paint(); }
 function ordersView() {
   const o = st.orders; const f = st.ofilter; const list = o ? o.filter((r) => f === 'all' || (f === 'shein' ? r.service === 'shein' : r.service !== 'shein')) : [];
-  const tabs = [['all', 'جميع الطلبات'], ['cards', 'كروت الألعاب'], ['shein', 'SHEIN']].map(([k, n]) => `<button class="${f === k ? 'on' : ''}" data-a="ofilter" data-k="${k}">${n}</button>`).join('');
-  return `${tbar('طلباتي')}<div class="tabs2">${tabs}</div><div class="pg">${o ? (list.length ? list.map((r) => `<button class="row oc" style="width:100%;text-align:right" data-a="ord" data-n="${r.number}"><span class="ot ${r.service === 'shein' ? 'sh' : ''}">${r.service === 'shein' ? '<b class="sl">S</b>' : ic('game')}</span><span class="g"><b>طلب #${r.number}</b><div class="mut">${fmtDate(r.created_at)}</div><div class="mut">${esc(r.order_items?.map((i) => i.name + ' ×' + i.qty).join('، ') || '')}</div></span><span style="text-align:end">${stTag(r.status)}<div><b>${mny(r.total_usd, r.service)}</b></div></span></button>`).join('') : `<div class="empty big"><span class="ei">${ic('stack')}</span><b>لا توجد طلبات بعد</b></div>`) : (st.ordersErr ? '<div class="retry"><div class="mut">تعذّر التحميل</div><button class="btn o" data-a="reload">إعادة المحاولة</button></div>' : '<div class="empty">جارٍ التحميل…</div>')}</div>`;
+  const IDX = { pending_payment: 0, paid: 1, processing: 2, completed: 3 }; const STEPS = ['تم الدفع', 'قيد التنفيذ', 'مكتمل'];
+  const card = (r) => { const ix = IDX[r.status]; const tl = ix != null && ix < 3 ? `<div class="otl">${STEPS.map((n, i) => `${i ? `<u class="${ix > i ? 'dn' : ''}"></u>` : ''}<div class="s ${ix > i + 1 ? 'dn' : ix === i + 1 ? 'cu' : ''}"><i></i><small>${n}</small></div>`).join('')}</div>` : '';
+    return `<button class="oc" data-a="ord" data-n="${r.number}"><span class="oh"><span class="ot ${r.service === 'shein' ? 'sh' : ''}">${r.service === 'shein' ? '<b class="sl">S</b>' : ic('game', 24)}</span><span class="g"><b>طلب #${r.number}</b><small>${fmtDate(r.created_at)} · ${mny(r.total_usd, r.service)}</small><small><bdi>${esc(r.order_items?.map((i) => i.name + ' ×' + i.qty).join('، ') || '')}</bdi></small></span>${stTag(r.status)}</span>${tl}</button>`; };
+  return `${tbar('طلباتي')}${segBar([['all', 'جميع الطلبات'], ['cards', 'كروت الألعاب'], ['shein', 'SHEIN']], f, 'ofilter')}<div class="bd">${o ? (list.length ? list.map(card).join('') : `<div class="empty big"><span class="ei">${ic('stack')}</span><b>لا توجد طلبات بعد</b></div>`) : (st.ordersErr ? '<div class="retry"><div class="mut">تعذّر التحميل</div><button class="btn o" data-a="reload">إعادة المحاولة</button></div>' : '<div class="skg"><i></i><i></i><i></i></div>')}</div>`;
 }
 async function orderModal(n) {
   try {
@@ -105,7 +124,7 @@ function accView() {
   if (sub === 'support') return `${tbar('الدعم الفني والشكاوى', 'accback')}<div class="pg"><label class="fld"><span>الموضوع</span><input id="ts" maxlength="120"></label><label class="fld"><span>التفاصيل</span><textarea id="tb" rows="3" maxlength="2000"></textarea></label><button class="btn w" data-a="tsend">إرسال</button>
   ${(st.tickets || []).map((t) => `<div class="row" style="margin-top:8px"><div class="g"><b>${esc(t.subject)}</b><div class="mut">${fmtDate(t.created_at)}</div></div><span class="tag">${t.status === 'open' ? 'مفتوحة' : 'مغلقة'}</span></div>`).join('')}</div>`;
   const items = [['profile', 'البيانات الشخصية', 'user'], ['settings', 'إعدادات الحساب', 'gear'], ['security', 'الأمان والتحقق', 'shield'], ['support', 'الدعم الفني والشكاوى', 'help']];
-  return `${tbar('حسابي')}<div class="pg"><div class="pf2"><span class="av">${ic('user')}</span><div class="g"><b>${esc(nm)}</b><div class="mut" dir="ltr" style="text-align:start">${esc(m?.email)}</div></div></div>
+  return `${tbar('حسابي')}<div class="pg"><div class="pf2"><span class="av">${ic('user')}</span><div class="g"><b>${esc(nm)}</b><div class="mut" dir="ltr" style="text-align:start">${esc(m?.email)}</div><span class="tag ${v === 'verified' ? 'ok' : ''}" style="margin-top:6px;display:inline-block">${VER[v]}</span></div></div><button class="wsc" data-a="tab" data-k="wallet"><span class="mi">${ic('wallet')}</span><span class="g">رصيد المحفظة</span><b>${st.wallet ? mW(st.wallet.balance) : '—'}</b></button>
   <div class="menu">${items.map(([k, n, i]) => `<button data-a="accsub" data-k="${k}"><span class="mi">${ic(i)}</span><span class="g">${n}</span><span class="ch">${ic('chev')}</span></button>`).join('')}<button data-a="about"><span class="mi">${ic('info')}</span><span class="g">حول منصة لمحة</span><span class="ch">${ic('chev')}</span></button></div>
   <button class="lo" data-a="logout">تسجيل الخروج ${ic('logout')}</button></div>`;
 }
@@ -113,12 +132,13 @@ function accView() {
 /* ---------- shell ---------- */
 function paint() {
   if (!S) { $('#nav').innerHTML = ''; $('#app').innerHTML = authView(); return; }
-  const v = { shop: shopView, shein: sheinView, wallet: walletView, orders: ordersView, acc: accView }[st.tab];
+  const v = { home: homeView, shop: storeView, wallet: walletView, orders: ordersView, acc: accView }[st.tab];
   const keep = document.activeElement?.id; const val = document.activeElement?.value; $('#app').innerHTML = v();
-  $('#nav').innerHTML = TABS.map(([k, n, i]) => `<button class="${st.tab === k ? 'on' : ''}" data-a="tab" data-k="${k}">${k === 'shein' ? '<b class="sl">S</b>' : ic(i)}${n}</button>`).join('');
+  const D = ([k, n, i]) => `<button class="dk ${st.tab === k ? 'on' : ''}" data-a="tab" data-k="${k}" aria-label="${n}">${ic(i, 22, st.tab === k ? 2.2 : 1.8)}<b>${n}</b></button>`;
+  $('#nav').innerHTML = `<div class="dockw"><div class="dock">${D(['home', 'الرئيسية', 'home'])}${D(['shop', 'المتجر', 'grid'])}<button class="fab ${st.tab === 'wallet' ? 'on' : ''}" data-a="tab" data-k="wallet" aria-label="المحفظة">${ic('bolt', 26, 2.2)}</button>${D(['orders', 'طلباتي', 'box'])}${D(['acc', 'حسابي', 'user'])}</div></div>`;
   if (keep && $('#' + keep) && val != null && $('#' + keep).type !== 'file') { $('#' + keep).value = val; $('#' + keep).focus(); }
 }
-function go(k) { st.tab = k; closeM(); paint(); if (k === 'shop' && !st.shop.cats) loadCats(); if (k === 'wallet') loadWallet(); if (k === 'orders') loadOrders(); if (k === 'acc') loadAcc(); }
+function go(k) { st.tab = k; closeM(); paint(); if ((k === 'home' || (k === 'shop' && st.seg !== 'shein')) && !st.shop.cats) loadCats(); if (k === 'home' || k === 'wallet' || (k === 'acc' && !st.wallet)) loadWallet(); if (k === 'orders') loadOrders(); if (k === 'acc') loadAcc(); }
 
 const H = {
   lang: () => setLang(nextLang()), reload: () => go(st.tab),
@@ -128,7 +148,7 @@ const H = {
     if (st.authMode === 'forgot') { await auth.recover(em); return toast('إن كان البريد مسجلاً سيصلك رابط الاستعادة'); }
     if (pw.length < 8) return toast('كلمة المرور 8 أحرف على الأقل', true);
     if (st.authMode === 'signup') { const d = await auth.signup(em, pw); if (!d.access_token) { st.authMode = 'login'; paint(); return toast('تم إنشاء الحساب. أكّد بريدك ثم سجّل الدخول'); } setSession(d); } else await auth.login(em, pw);
-    await loadMe(); go('shop');
+    await loadMe(); go('home');
   }),
   psave: (b) => guard(b, async () => { await api('/profile', { method: 'PATCH', body: { full_name: $('#pn').value, phone: $('#pp').value.trim() } }); toast('تم الحفظ'); loadAcc(); }),
   logout: async () => { await auth.logout(); st.me = null; st.accSub = null; closeM(); paint(); },
@@ -152,6 +172,10 @@ const H = {
   ord: (b) => orderModal(b.dataset.n), ofilter: (b) => { st.ofilter = b.dataset.k; paint(); },
   accsub: (b) => { st.accSub = b.dataset.k; paint(); window.scrollTo(0, 0); }, accback: () => { st.accSub = null; paint(); },
   soon: () => toast('هذا القسم قريباً'),
+  seg: (b) => { st.seg = b.dataset.k; if (st.seg !== 'shein') { st.shop.service = st.seg === 'games' ? 'top_ups' : 'gift_cards'; st.shop.q = ''; loadCats(); } else paint(); },
+  qgo: (b) => { st.tab = 'shop'; closeM(); H.seg(b); window.scrollTo(0, 0); },
+  catgo: (b) => { st.seg = st.shop.service === 'top_ups' ? 'games' : 'cards'; st.tab = 'shop'; window.scrollTo(0, 0); loadOffers(b.dataset.id); },
+  chip: (b) => { const i = $('#ta'); i.value = b.dataset.v; i.dispatchEvent(new Event('input', { bubbles: true })); },
   paste: async () => { try { const t = (await navigator.clipboard.readText() || '').trim(); if (!t) return toast('الحافظة فارغة', true); $('#shl').value = t; st.sh.link = t; } catch { toast('تعذّر اللصق، الصق الرابط يدوياً', true); } },
   about: () => modal(`<h3>حول منصة لمحة<button data-a="close">${ic('x')}</button></h3><div class="box"><b>كل ما تحتاجه في لمحة واحدة</b><div class="mut" style="margin-top:6px">منصة لشراء بطاقات الهدايا وشحن الألعاب وطلبات SHEIN، مع محفظة تشحنها عبر Ezone Pay.</div></div>`),
   menu: () => modal(`<h3>القائمة<button data-a="close">${ic('x')}</button></h3><div class="menu"><button data-a="menugo" data-k="support"><span class="mi">${ic('help')}</span><span class="g">الدعم الفني والشكاوى</span><span class="ch">${ic('chev')}</span></button><button data-a="about"><span class="mi">${ic('info')}</span><span class="g">حول منصة لمحة</span><span class="ch">${ic('chev')}</span></button></div><button class="lo" data-a="logout">تسجيل الخروج ${ic('logout')}</button>`),
@@ -168,4 +192,4 @@ document.addEventListener('lamha:expired', () => { st.me = null; st.wallet = nul
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-a]'); if (b && H[b.dataset.a]) H[b.dataset.a](b, e); });
 let qt; document.addEventListener('input', (e) => { if (e.target.id === 'ta') { const h = $('#tah'), v = Number(e.target.value); if (h) h.textContent = v > 0 && (RT.wallet || RT.default) ? '≈ ' + mny(v, 'wallet') : ''; } if (e.target.id === 'sq') { st.shop.q = e.target.value; clearTimeout(qt); qt = setTimeout(loadCats, 450); } });
 loadRates().then(() => { if (S) paint(); });
-(async () => { if (S) { await loadMe(); if (!st.me) setSession(null); } paint(); if (S) go(location.search.includes('topup=return') ? 'wallet' : 'shop'); })();
+(async () => { if (S) { await loadMe(); if (!st.me) setSession(null); } paint(); if (S) go(location.search.includes('topup=return') ? 'wallet' : 'home'); })();
