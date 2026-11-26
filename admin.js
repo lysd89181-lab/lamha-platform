@@ -16,7 +16,7 @@ const TABS = [
   ['staff', 'المشرفون', 'staff'],
   ['audit', 'سجل العمليات', 'settings'],
 ];
-const SET_LABEL = { shein_deposit_pct: 'نسبة عربون SHEIN %', shein_shipping_usd: 'شحن SHEIN (USD)', shein_extra_fee_usd: 'رسوم SHEIN الإضافية (USD)', topup_min_usd: 'أدنى شحن (USD)', topup_max_usd: 'أقصى شحن (USD)' };
+const SET_LABEL = { shein_deposit_pct: 'نسبة عربون SHEIN %', shein_shipping_usd: 'شحن SHEIN (USD)', shein_extra_fee_usd: 'رسوم SHEIN الإضافية (USD)', topup_min_usd: 'أدنى شحن (USD)', topup_max_usd: 'أقصى شحن (USD)', rate_default: 'سعر الصرف العام (د.ل لكل 1$) — 0 = عرض بالدولار', rate_wallet: 'صرف المحفظة (د.ل لكل 1$)', rate_gift_cards: 'صرف بطاقات الهدايا (د.ل لكل 1$)', rate_top_ups: 'صرف شحن الألعاب (د.ل لكل 1$)', rate_shein: 'صرف SHEIN (د.ل لكل 1$)' };
 const PERMS = ['orders', 'products', 'verification', 'support', 'finance', 'settings', 'pricing', 'services'];
 const can = (p) => Boolean(A.me?.staff && (A.me.staff.role === 'super_admin' || (A.me.staff.permissions || []).includes(p)));
 const isOwner = () => A.me?.staff?.role === 'super_admin';

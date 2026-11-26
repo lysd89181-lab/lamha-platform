@@ -2,6 +2,10 @@
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const usd = (n) => '$' + Number(n || 0).toFixed(2);
+// Display-only LYD rates (LYD per 1 USD) set by admin; charging/ledger stay in USD. No rate set -> falls back to USD.
+let RT = {};
+async function loadRates() { try { const r = await fetchT(API_BASE + '/rates', {}, 4000); const j = await r.json().catch(() => null); if (r.ok && j && j.rates) RT = j.rates; } catch { /* keep USD display */ } }
+const mny = (n, k) => { const r = RT[k] || RT.default; if (!r) return usd(n); return (Number(n || 0) * r).toFixed(2) + ' ' + (typeof LANG !== 'undefined' && LANG !== 'ar' ? 'LYD' : 'د.ل'); };
 const API_BASE = 'https://lamha-platform.ysymazn58.workers.dev/api';
 const FALLBACK_CFG = {
   supabase_url: 'https://lexyiuglleloqmbsoajb.supabase.co',

@@ -99,3 +99,33 @@ table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{padding:8px;bor
 .nav{border-radius:22px 22px 0 0;box-shadow:0 -6px 20px rgba(11,23,42,.08);border-top:0}.nav button.on{color:var(--navy)}.nav button.on svg.i{fill:rgba(11,23,42,.12)}.nav button.on:before{content:"";position:absolute;top:0;width:28px;height:3px;border-radius:0 0 3px 3px;background:var(--navy)}.nav button{position:relative}
 
 [dir=ltr] .bc{left:auto;right:0}
+
+/* ===== v3 premium polish: type scale (min 12px), 4/8 spacing, stronger states ===== */
+body{font-family:Cairo,"IBM Plex Sans Arabic",Tajawal,system-ui,sans-serif;font-size:14px;line-height:1.6}
+.mut,.fld span,.tag,.kv .mut,.err{font-size:12px}.tag{font-size:12px}.nav button{font-size:12px}.btn.s{font-size:13px}
+svg.i{stroke-width:1.8}
+/* bottom nav: same stroke everywhere, active = full navy + bold */
+.nav button{font-weight:500;gap:4px;padding:8px 0}.nav button.on{color:var(--navy);font-weight:800}.nav button.on svg.i{stroke-width:2.2}.nav .sl{font-weight:500}.nav button.on .sl{font-weight:800}
+/* home */
+.tile{border:1px solid transparent;transition:border-color .15s,box-shadow .15s,background .15s;gap:8px}.tile svg.i{width:31px;height:31px}.tile .sl{font-size:29px}
+.tile:hover,.tile:active,.tile:focus-visible{border-color:var(--navy);background:#fff;box-shadow:0 4px 12px rgba(11,23,42,.10)}
+.pgrid{align-items:stretch}.pc{height:100%;justify-content:space-between}.pimg{height:80px}.pn{min-height:40px;font-size:13px;font-weight:600}
+.pb{color:#fff;font-weight:800;font-size:12px;height:36px}.pb svg.i{stroke:#fff}
+.srch{box-shadow:0 4px 14px rgba(11,23,42,.08);background:#fff;border-color:var(--line)}
+.sh,.sec{margin-block:8px 12px}.sheet{padding:16px 16px 24px}.tiles,.pgrid{gap:12px;margin-bottom:24px}
+/* account */
+.pf2{padding:20px;gap:16px;margin-bottom:16px}.pf2 .mut{color:#475569;font-size:13px}.av{width:56px;height:56px}
+.menu button{padding:16px 20px;font-size:15px}.menu{margin-bottom:16px}.mi{color:var(--navy)}.mi svg.i{width:22px;height:22px}
+.lo{background:#FEF2F2;color:#991B1B;border:1px solid #FECACA;height:48px;font-size:15px}.lo svg.i{stroke:#991B1B}
+/* orders */
+.tabs2 button{font-size:14px;padding:14px 4px;border-bottom-width:3px}.tabs2 button.on{border-bottom-color:var(--navy);color:var(--navy);font-weight:800}
+.empty.big{padding:48px 0;font-size:16px;display:flex;flex-direction:column;align-items:center;gap:16px}.empty.big b{font-size:17px;color:var(--txt)}.ei{width:88px;height:88px;border-radius:50%;background:var(--chip);display:flex;align-items:center;justify-content:center;color:var(--gray)}.ei svg.i{width:44px;height:44px;stroke-width:1.5}
+/* wallet */
+.wl,.wf span{color:#F8FAFC;opacity:1;font-size:13px;font-weight:600}.wb{color:#fff}
+.wf input{background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.55);color:#fff;font-size:16px}.wf input:focus{border-color:#fff;background:rgba(255,255,255,.18)}.wf input::placeholder{color:rgba(255,255,255,.7)}.wf small{display:block;margin-top:4px;color:#E2E8F0;font-size:12px}
+.wbtn{background:#2563EB;border:0;color:#fff;font-weight:800;height:48px;font-size:15px;box-shadow:0 6px 16px rgba(37,99,235,.45)}.wbtn svg.i{stroke:#fff;width:18px;height:18px}
+.tx{border-radius:0;border-width:0 0 1px;margin:0;background:transparent;padding:12px 4px}.tx:last-child{border-bottom:0}
+/* shein */
+.note{background:#FFF9E6;color:#7C4A03;border:1px solid #FDE9A8;font-size:12px;font-weight:500;line-height:1.5;padding:8px 12px;margin-bottom:12px}
+.srch.lnk .pst{flex:none;background:var(--navy);color:#fff;border-radius:10px;padding:0 12px;height:32px;font-size:13px;font-weight:700}
+.btn.rd{height:52px;font-size:16px;font-weight:800;margin:8px 0 12px;box-shadow:0 6px 16px rgba(11,23,42,.25)}

@@ -107,7 +107,7 @@ async function admin(e: Env, u: User, req: Request, path: string) {
   if (path === "admin/settings" && req.method === "PUT") {
     await requireAdmin(e, u, "settings");
     const num = (v: unknown, lo: number, hi: number) => { const n = Number(v); if (!Number.isFinite(n) || n < lo || n > hi) throw new HttpError(400, "bad_value"); return n; };
-    const rules: Record<string, [number, number]> = { shein_deposit_pct: [1, 100], shein_shipping_usd: [0, 1e4], shein_extra_fee_usd: [0, 1e4], topup_min_usd: [0.01, 1e5], topup_max_usd: [0.01, 1e6] };
+    const rules: Record<string, [number, number]> = { shein_deposit_pct: [1, 100], shein_shipping_usd: [0, 1e4], shein_extra_fee_usd: [0, 1e4], topup_min_usd: [0.01, 1e5], topup_max_usd: [0.01, 1e6], rate_default: [0, 1e4], rate_wallet: [0, 1e4], rate_gift_cards: [0, 1e4], rate_top_ups: [0, 1e4], rate_shein: [0, 1e4] };
     if (!rules[body.key]) throw new HttpError(400, "unknown_key");
     const v = num(body.value, ...rules[body.key]);
     await sb(e, "app_settings?on_conflict=key", { method: "POST", prefer: "resolution=merge-duplicates", body: JSON.stringify({ key: body.key, value: v }) });
@@ -170,6 +170,11 @@ async function handle(req: Request, e: Env): Promise<Response> {
   if (!url.pathname.startsWith("/api/")) return e.ASSETS ? e.ASSETS.fetch(req) : new Response("not found", { status: 404 });
   try {
     if (path === "health") { const q = url.searchParams.get("origin"); return json(q ? { ok: true, origin_allowed: originAllowed(e, q, url.origin) } : { ok: true }); }
+    if (path === "rates") { // display-only LYD-per-USD rates set in admin; 0/missing = not set (client shows USD)
+      const rows = await sb<any[]>(e, "app_settings?key=like.rate_*&select=key,value").catch(() => []);
+      const rates: Record<string, number> = {}; for (const r of rows) { const n = Number(r.value); if (Number.isFinite(n) && n > 0) rates[String(r.key).slice(5)] = n; }
+      return new Response(JSON.stringify({ rates }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=60" } });
+    }
     if (path === "config") return new Response(JSON.stringify({ supabase_url: e.SUPABASE_URL, publishable_key: e.SUPABASE_PUBLISHABLE_KEY }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=300" } }); // public values only
     if (path === "webhooks/ezone" && req.method === "POST") return await ezoneWebhook(e, req);
     const u = await auth(e, req);

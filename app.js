@@ -5,6 +5,7 @@ const SVC = { gift_cards: 'بطاقات الهدايا', top_ups: 'شحن الأ
 const VER = { unverified: 'غير موثق', pending: 'قيد المراجعة', verified: 'موثق', rejected: 'مرفوض' };
 const head = (bell = true) => `<div class="lh">${bell ? `<button class="ib" data-a="menu" aria-label="القائمة">${ic('menu')}</button>` : '<span class="ib"></span>'}<img src="logo.png" alt="لمحة LAMHA" data-notr="1">${bell ? `<span class="lg">${langBtn()}<button class="ib" data-a="notifs" aria-label="الإشعارات">${ic('bell')}</button></span>` : '<span class="ib"></span>'}</div>`;
 const tbar = (title, a = 'tab', k = 'shop') => `<div class="tb"><button class="ib bk" data-a="${a}" data-k="${k}" aria-label="رجوع">${ic('back')}</button><b>${title}</b><button class="ib" data-a="notifs" aria-label="الإشعارات">${ic('bell')}</button></div>`;
+const mS = (n) => mny(n, st.shop.service), mSh = (n) => mny(n, 'shein'), mW = (n) => mny(n, 'wallet');
 const TILES = [['soon', 'اشتراكات رقمية', 'game'], ['svc:gift_cards', 'بطاقات الهدايا', 'gift'], ['svc:top_ups', 'شحن الألعاب', 'crown'], ['tab:shein', 'SHEIN', 'S'], ['soon', 'خدمات أخرى', 'grid'], ['soon', 'بطاقات دولية', 'globe']];
 
 function authView() {
@@ -22,7 +23,7 @@ async function loadCats() { const s = st.shop; s.cats = null; s.cat = null; s.of
 async function loadOffers(id) { const s = st.shop; s.cat = id; s.offers = null; paint(); try { const r = await api(`/shop/offers?service=${s.service}&id=${encodeURIComponent(id)}`); s.offers = r.offers; s.fields = r.fields || []; } catch (e) { s.err = errMsg(e); s.offers = []; } paint(); }
 function shopView() {
   const s = st.shop; let body = '';
-  const offerRow = (o) => `<div class="row"><div class="g"><b>${esc(o.name)}</b><div class="mut">${o.available ? (o.stock != null ? 'متوفر: ' + o.stock : 'متوفر') : 'نفد المخزون'}</div></div><div style="text-align:left"><b>${usd(o.price_usd)}</b><br><button class="btn s" data-a="buy" data-id="${esc(o.id)}" ${o.available ? '' : 'disabled'}>شراء</button></div></div>`;
+  const offerRow = (o) => `<div class="row"><div class="g"><b>${esc(o.name)}</b><div class="mut">${o.available ? (o.stock != null ? 'متوفر: ' + o.stock : 'متوفر') : 'نفد المخزون'}</div></div><div style="text-align:left"><b>${mS(o.price_usd)}</b><br><button class="btn s" data-a="buy" data-id="${esc(o.id)}" ${o.available ? '' : 'disabled'}>شراء</button></div></div>`;
   const catRow = (c) => `<button class="row" style="width:100%;text-align:right" data-a="cat" data-id="${esc(c.id)}">${c.image ? `<img class="th" src="${esc(c.image)}" alt="" data-n="${esc(c.name)}" referrerpolicy="no-referrer" style="width:44px;height:44px">` : ''}<span class="g"><b>${esc(c.name)}</b></span></button>`;
   const feat = (c) => `<div class="pc">${c.image ? `<img class="th pimg" src="${esc(c.image)}" alt="" data-n="${esc(c.name)}" referrerpolicy="no-referrer">` : `<div class="th pimg fallback">${esc(c.name.trim().charAt(0).toUpperCase())}</div>`}<b class="pn">${esc(c.name)}</b><button class="pb" data-a="cat" data-id="${esc(c.id)}">عرض العروض ${ic('cart')}</button></div>`;
   if (s.err) body = `<div class="note">${esc(s.err)}</div>`;
@@ -37,27 +38,27 @@ function shopView() {
 }
 function buyModal(o) {
   const key = uuid(); const max = Math.max(1, Math.min(o.max || 100, o.stock ?? 100)); const direct = st.shop.service === 'top_ups';
-  modal(`<h3>${esc(o.name)}<button data-a="close">${ic('x')}</button></h3><div class="box"><div class="kv"><span>${direct ? 'السعر' : 'سعر الوحدة'}</span><b>${usd(o.price_usd)}</b></div>
-  ${direct ? (st.shop.fields || []).map((f) => `<label class="fld"><span>${esc(f.label)}</span><input class="pf" data-k="${esc(f.key)}" maxlength="100" autocomplete="off" dir="ltr"></label>`).join('') + '<div class="mut">تأكد من صحة البيانات: لا يمكن تعديلها بعد التأكيد.</div>' : `<label class="fld"><span>الكمية</span><input id="bq" type="number" min="${o.min || 1}" max="${max}" value="${o.min || 1}"></label>`}<div class="kv t"><span>الإجمالي</span><b id="bt">${usd(o.price_usd * (direct ? 1 : (o.min || 1)))}</b></div></div>
+  modal(`<h3>${esc(o.name)}<button data-a="close">${ic('x')}</button></h3><div class="box"><div class="kv"><span>${direct ? 'السعر' : 'سعر الوحدة'}</span><b>${mS(o.price_usd)}</b></div>
+  ${direct ? (st.shop.fields || []).map((f) => `<label class="fld"><span>${esc(f.label)}</span><input class="pf" data-k="${esc(f.key)}" maxlength="100" autocomplete="off" dir="ltr"></label>`).join('') + '<div class="mut">تأكد من صحة البيانات: لا يمكن تعديلها بعد التأكيد.</div>' : `<label class="fld"><span>الكمية</span><input id="bq" type="number" min="${o.min || 1}" max="${max}" value="${o.min || 1}"></label>`}<div class="kv t"><span>الإجمالي</span><b id="bt">${mS(o.price_usd * (direct ? 1 : (o.min || 1)))}</b></div></div>
   <div class="mut" style="margin-bottom:10px">يُخصم من رصيد محفظتك. السعر النهائي يؤكده الخادم.</div><button class="btn w" data-a="buygo" data-id="${esc(o.id)}" data-key="${key}">تأكيد الشراء</button>`);
-  if (!direct) $('#bq').addEventListener('input', (e) => { $('#bt').textContent = usd(o.price_usd * (Number(e.target.value) || 0)); });
+  if (!direct) $('#bq').addEventListener('input', (e) => { $('#bt').textContent = mS(o.price_usd * (Number(e.target.value) || 0)); });
 }
 
 /* ---------- SHEIN ---------- */
 function sheinView() {
   const s = st.sh; let h = `<div class="hero sheinh">${head()}<div class="sbn"><b>SHEIN</b><span>Shop the latest styles</span></div></div><div class="sheet"><div class="note">أسعار SHEIN لقطة من السلة وقت القراءة وغير مضمونة. السعر النهائي يُؤكَّد قبل الطلب، ولا يمكن تعديل الطلب بعد دفع العربون.</div>
-  <label class="srch lnk">${ic('link')}<input id="shl" dir="ltr" value="${esc(s.link)}" placeholder="https://onelink.shein.com/..." aria-label="أدخل رابط سلة مشتريات SHEIN"></label><div class="mut" style="margin:-4px 4px 10px">رابط مشاركة سلة SHEIN</div><button class="btn w" data-a="shcart">قراءة السلة</button>`;
+  <label class="srch lnk">${ic('link')}<input id="shl" dir="ltr" value="${esc(s.link)}" placeholder="https://onelink.shein.com/..." aria-label="أدخل رابط سلة مشتريات SHEIN"><button class="pst" data-a="paste">لصق</button></label><div class="mut" style="margin:-4px 4px 10px">رابط مشاركة سلة SHEIN</div><button class="btn w rd" data-a="shcart">قراءة السلة</button>`;
   if (s.err) h += `<div class="err">${esc(s.err)}</div>`;
   if (s.cart) {
     h += `<div class="sec">${esc(s.cart.title || 'السلة')}</div><div class="mut" style="margin-bottom:8px">العملة التي أعادتها SHEIN: ${esc(s.cart.currency?.shown || '؟')} · الأسعار المعتمدة بالدولار فقط · الكميات يحددها العميل</div>`;
     h += s.items.map((i) => { const q = s.q[i.key] || 0; return `<div class="row">${i.image ? `<img class="th" src="${esc(i.image)}" alt="" referrerpolicy="no-referrer">` : '<div class="th"></div>'}<div class="g"><b>${esc(i.name)}</b><div class="mut">${esc(i.attr)}</div>
-      ${i.unitUsdCents != null ? `<div><b>${usd(i.unitUsdCents / 100)}</b> ${i.savingsUsdCents ? `<s class="mut">${usd(i.originalUsdCents / 100)}</s> <span class="tag ok">وفّر ${usd(i.savingsUsdCents / 100)} (${esc(i.discountPercent)}%)</span>` : ''}</div>${i.savingsUsdCents ? '<div class="mut">مصدر الخصم غير مؤكد (قد لا يكون متاحاً للجميع)</div>' : ''}` : '<div class="mut">لا يتوفر سعر بالدولار</div>'}
+      ${i.unitUsdCents != null ? `<div><b>${mSh(i.unitUsdCents / 100)}</b> ${i.savingsUsdCents ? `<s class="mut">${mSh(i.originalUsdCents / 100)}</s> <span class="tag ok">وفّر ${mSh(i.savingsUsdCents / 100)} (${esc(i.discountPercent)}%)</span>` : ''}</div>${i.savingsUsdCents ? '<div class="mut">مصدر الخصم غير مؤكد (قد لا يكون متاحاً للجميع)</div>' : ''}` : '<div class="mut">لا يتوفر سعر بالدولار</div>'}
       ${i.orderable ? `<div class="q" style="margin-top:6px"><button data-a="qm" data-k="${esc(i.key)}">−</button><b>${q}</b><button data-a="qp" data-k="${esc(i.key)}">+</button></div>` : `<span class="tag bad">${i.orderableReason === 'sold_out' ? 'نفد' : i.orderableReason === 'unavailable' ? 'غير متوفر' : 'غير قابل للطلب'}</span>`}</div></div>`; }).join('');
     h += `<button class="btn w" data-a="shquote">احسب الإجمالي</button>`;
   }
-  if (s.quote) { const t = s.quote; h += `<div class="qb"><div class="qh">تفاصيل الطلب</div>${t.items.map((i) => `<div class="kv"><span>${esc(i.name)} ×${i.qty}</span><span>${usd(i.unit_price * i.qty)}</span></div>`).join('')}
-    <div class="kv"><span>الشحن</span><span>${usd(t.shipping)}</span></div><div class="kv"><span>الرسوم</span><span>${usd(t.fees)}</span></div><div class="kv t"><span>الإجمالي</span><span>${usd(t.total)}</span></div></div>
-    <div class="dep"><span class="di">${ic('wallet')}</span><div class="g"><div class="mut">العربون المطلوب الآن</div><b>${usd(t.deposit)}</b></div><div style="text-align:end"><div class="mut">المتبقي عند الاستلام</div><b>${usd(t.remaining)}</b></div></div>
+  if (s.quote) { const t = s.quote; h += `<div class="qb"><div class="qh">تفاصيل الطلب</div>${t.items.map((i) => `<div class="kv"><span>${esc(i.name)} ×${i.qty}</span><span>${mSh(i.unit_price * i.qty)}</span></div>`).join('')}
+    <div class="kv"><span>الشحن</span><span>${mSh(t.shipping)}</span></div><div class="kv"><span>الرسوم</span><span>${mSh(t.fees)}</span></div><div class="kv t"><span>الإجمالي</span><span>${mSh(t.total)}</span></div></div>
+    <div class="dep"><span class="di">${ic('wallet')}</span><div class="g"><div class="mut">العربون المطلوب الآن</div><b>${mSh(t.deposit)}</b></div><div style="text-align:end"><div class="mut">المتبقي عند الاستلام</div><b>${mSh(t.remaining)}</b></div></div>
     <div class="mut" style="margin-bottom:8px">إلغاء الطلب قبل الشراء: العربون غير مسترد. عند فشل الطلب يُعاد العربون لمحفظتك تلقائياً.</div><button class="btn w" data-a="shorder" data-key="${uuid()}">تأكيد الطلب ودفع العربون من المحفظة</button>`; }
   return h + '</div>';
 }
@@ -67,24 +68,28 @@ const quantities = () => Object.fromEntries(Object.entries(st.sh.q).filter(([, v
 async function loadWallet() { st.walletErr = false; try { st.wallet = await api('/wallet'); } catch (e) { st.walletErr = true; if (e.error !== 'session_expired') toast(errMsg(e), true); } paint(); }
 function walletView() {
   const w = st.wallet; const KIND = { deposit: 'إيداع', debit: 'خصم', refund: 'استرداد' };
-  return `${tbar('المحفظة')}<div class="pg"><div class="wc"><div class="wr"><div><div class="wl">رصيدك الحالي</div><div class="wb">${w ? usd(w.balance) : '…'}</div></div><span class="wi">${ic('wallet')}</span></div>
-  <label class="wf"><span>مبلغ الشحن (USD)</span><input id="ta" inputmode="decimal" dir="ltr" placeholder="10.00"></label><button class="wbtn" data-a="topup">شحن المحفظة عبر Ezone Pay ${ic('bolt')}</button></div>
+  return `${tbar('المحفظة')}<div class="pg"><div class="wc"><div class="wr"><div><div class="wl">رصيدك الحالي</div><div class="wb">${w ? mW(w.balance) : '…'}</div></div><span class="wi">${ic('wallet')}</span></div>
+  <label class="wf"><span>مبلغ الشحن (USD)</span><input id="ta" inputmode="decimal" dir="ltr" placeholder="10.00"><small id="tah" class="mut"></small></label><button class="wbtn" data-a="topup">شحن المحفظة عبر Ezone Pay ${ic('bolt')}</button></div>
   <div class="mut" style="margin:-4px 4px 4px">يُضاف الرصيد تلقائياً فقط بعد تأكيد الدفع من Ezone Pay، وليس بمجرد العودة للموقع.</div><div class="sec">سجل العمليات</div>
-  ${st.walletErr && !w ? '<div class="retry"><button class="btn o" data-a="reload">إعادة المحاولة</button></div>' : ''}${w ? (w.transactions.length ? w.transactions.map((t) => { const dn = t.kind === 'debit'; return `<div class="row tx"><span class="ti ${dn ? 'dn' : 'up'}">${ic(dn ? 'down' : 'up')}</span><div class="g"><b>${KIND[t.kind] || t.kind}</b><div class="mut">${fmtDate(t.created_at)} · رصيد بعد: ${usd(t.balance_after)}</div></div><b class="${dn ? 'neg' : 'pos'}" dir="ltr">${dn ? '-' : '+'}${usd(t.amount)}</b></div>`; }).join('') : '<div class="empty">لا توجد عمليات</div>') : ''}</div>`;
+  ${st.walletErr && !w ? '<div class="retry"><button class="btn o" data-a="reload">إعادة المحاولة</button></div>' : ''}${w ? (w.transactions.length ? w.transactions.map((t) => { const dn = t.kind === 'debit'; return `<div class="row tx"><span class="ti ${dn ? 'dn' : 'up'}">${ic(dn ? 'down' : 'up')}</span><div class="g"><b>${KIND[t.kind] || t.kind}</b><div class="mut">${fmtDate(t.created_at)} · رصيد بعد: ${mW(t.balance_after)}</div></div><b class="${dn ? 'neg' : 'pos'}" dir="ltr">${dn ? '-' : '+'}${mW(t.amount)}</b></div>`; }).join('') : '<div class="empty">لا توجد عمليات</div>') : ''}</div>`;
 }
 async function loadOrders() { st.ordersErr = false; try { st.orders = await api('/orders'); } catch (e) { st.ordersErr = true; if (e.error !== 'session_expired') toast(errMsg(e), true); } paint(); }
 function ordersView() {
   const o = st.orders; const f = st.ofilter; const list = o ? o.filter((r) => f === 'all' || (f === 'shein' ? r.service === 'shein' : r.service !== 'shein')) : [];
   const tabs = [['all', 'جميع الطلبات'], ['cards', 'كروت الألعاب'], ['shein', 'SHEIN']].map(([k, n]) => `<button class="${f === k ? 'on' : ''}" data-a="ofilter" data-k="${k}">${n}</button>`).join('');
-  return `${tbar('طلباتي')}<div class="tabs2">${tabs}</div><div class="pg">${o ? (list.length ? list.map((r) => `<button class="row oc" style="width:100%;text-align:right" data-a="ord" data-n="${r.number}"><span class="ot ${r.service === 'shein' ? 'sh' : ''}">${r.service === 'shein' ? '<b class="sl">S</b>' : ic('game')}</span><span class="g"><b>طلب #${r.number}</b><div class="mut">${fmtDate(r.created_at)}</div><div class="mut">${esc(r.order_items?.map((i) => i.name + ' ×' + i.qty).join('، ') || '')}</div></span><span style="text-align:end">${stTag(r.status)}<div><b>${usd(r.total_usd)}</b></div></span></button>`).join('') : '<div class="empty">لا توجد طلبات بعد</div>') : (st.ordersErr ? '<div class="retry"><div class="mut">تعذّر التحميل</div><button class="btn o" data-a="reload">إعادة المحاولة</button></div>' : '<div class="empty">جارٍ التحميل…</div>')}</div>`;
+  return `${tbar('طلباتي')}<div class="tabs2">${tabs}</div><div class="pg">${o ? (list.length ? list.map((r) => `<button class="row oc" style="width:100%;text-align:right" data-a="ord" data-n="${r.number}"><span class="ot ${r.service === 'shein' ? 'sh' : ''}">${r.service === 'shein' ? '<b class="sl">S</b>' : ic('game')}</span><span class="g"><b>طلب #${r.number}</b><div class="mut">${fmtDate(r.created_at)}</div><div class="mut">${esc(r.order_items?.map((i) => i.name + ' ×' + i.qty).join('، ') || '')}</div></span><span style="text-align:end">${stTag(r.status)}<div><b>${mny(r.total_usd, r.service)}</b></div></span></button>`).join('') : `<div class="empty big"><span class="ei">${ic('stack')}</span><b>لا توجد طلبات بعد</b></div>`) : (st.ordersErr ? '<div class="retry"><div class="mut">تعذّر التحميل</div><button class="btn o" data-a="reload">إعادة المحاولة</button></div>' : '<div class="empty">جارٍ التحميل…</div>')}</div>`;
 }
 async function orderModal(n) {
   try {
-    const o = await api('/orders/' + n);
-    modal(`<h3>طلب #${o.number}<button data-a="close">${ic('x')}</button></h3><div class="box"><div class="kv"><span>الحالة</span>${stTag(o.status)}</div><div class="kv"><span>الإجمالي</span><b>${usd(o.total_usd)}</b></div><div class="kv"><span>المدفوع</span><b>${usd(o.paid_usd)}</b></div>${o.remaining_usd ? `<div class="kv"><span>المتبقي عند الاستلام</span><b>${usd(o.remaining_usd)}</b></div>` : ''}</div>
-    <div class="sec">المنتجات</div>${o.order_items.map((i) => `<div class="kv"><span>${esc(i.name)} ×${i.qty}</span><span>${usd(i.unit_price * i.qty)}</span></div>`).join('')}
+    const o = await api('/orders/' + n); const M = (v) => mny(v, o.service); const sh = o.service === 'shein';
+    const items = o.order_items.reduce((a, i) => a + i.unit_price * i.qty, 0); const extra = Math.max(0, Math.round((o.total_usd - items) * 100) / 100);
+    const inv = sh ? `<div class="qb"><div class="qh">فاتورة الطلب</div>${o.order_items.map((i) => `<div class="kv"><span>${esc(i.name)} ×${i.qty}</span><span>${M(i.unit_price * i.qty)}</span></div>`).join('')}
+      <div class="kv"><span>إجمالي المنتجات</span><span>${M(items)}</span></div><div class="kv"><span>الشحن والرسوم</span><span>${M(extra)}</span></div><div class="kv t"><span>الإجمالي</span><span>${M(o.total_usd)}</span></div>
+      <div class="kv"><span>المدفوع (العربون)</span><b>${M(o.paid_usd)}</b></div><div class="kv"><span>المتبقي عند الاستلام</span><b>${M(o.remaining_usd || 0)}</b></div></div>`
+      : `<div class="box"><div class="kv"><span>الإجمالي</span><b>${M(o.total_usd)}</b></div><div class="kv"><span>المدفوع</span><b>${M(o.paid_usd)}</b></div></div><div class="sec">المنتجات</div>${o.order_items.map((i) => `<div class="kv"><span>${esc(i.name)} ×${i.qty}</span><span>${M(i.unit_price * i.qty)}</span></div>`).join('')}`;
+    modal(`<h3>طلب #${o.number}<button data-a="close">${ic('x')}</button></h3><div class="box"><div class="kv"><span>الحالة</span>${stTag(o.status)}</div><div class="kv"><span>التاريخ</span><span>${fmtDate(o.created_at)}</span></div></div>${inv}
     <div class="sec">مراحل الطلب</div><div class="tl">${o.order_status_history.map((h, n, a) => `<div class="st ${n === a.length - 1 ? 'cur' : ''}"><i></i><span>${(STATUS[h.status] || [h.status])[0]}</span><span class="mut">${fmtDate(h.created_at)}</span></div>`).join('')}</div>
-    ${o.status === 'completed' && o.service !== 'shein' ? `<button class="btn w" style="margin-top:12px" data-a="codes" data-n="${o.number}">عرض الأكواد</button><div id="codes"></div>` : ''}
+    ${o.status === 'completed' && !sh ? `<button class="btn w" style="margin-top:12px" data-a="codes" data-n="${o.number}">عرض الأكواد</button><div id="codes"></div>` : ''}
     <button class="btn o w" style="margin-top:10px" data-a="ticket" data-n="${o.number}">تقديم شكوى على هذا الطلب</button>`);
   } catch (e) { toast(errMsg(e), true); }
 }
@@ -147,6 +152,7 @@ const H = {
   ord: (b) => orderModal(b.dataset.n), ofilter: (b) => { st.ofilter = b.dataset.k; paint(); },
   accsub: (b) => { st.accSub = b.dataset.k; paint(); window.scrollTo(0, 0); }, accback: () => { st.accSub = null; paint(); },
   soon: () => toast('هذا القسم قريباً'),
+  paste: async () => { try { const t = (await navigator.clipboard.readText() || '').trim(); if (!t) return toast('الحافظة فارغة', true); $('#shl').value = t; st.sh.link = t; } catch { toast('تعذّر اللصق، الصق الرابط يدوياً', true); } },
   about: () => modal(`<h3>حول منصة لمحة<button data-a="close">${ic('x')}</button></h3><div class="box"><b>كل ما تحتاجه في لمحة واحدة</b><div class="mut" style="margin-top:6px">منصة لشراء بطاقات الهدايا وشحن الألعاب وطلبات SHEIN، مع محفظة تشحنها عبر Ezone Pay.</div></div>`),
   menu: () => modal(`<h3>القائمة<button data-a="close">${ic('x')}</button></h3><div class="menu"><button data-a="menugo" data-k="support"><span class="mi">${ic('help')}</span><span class="g">الدعم الفني والشكاوى</span><span class="ch">${ic('chev')}</span></button><button data-a="about"><span class="mi">${ic('info')}</span><span class="g">حول منصة لمحة</span><span class="ch">${ic('chev')}</span></button></div><button class="lo" data-a="logout">تسجيل الخروج ${ic('logout')}</button>`),
   menugo: (b) => { closeM(); st.accSub = b.dataset.k; go('acc'); },
@@ -160,5 +166,6 @@ document.addEventListener('error', (e) => { const i = e.target; if (i.tagName ==
 document.addEventListener('lamha:lang', () => { closeM(); paint(); });
 document.addEventListener('lamha:expired', () => { st.me = null; st.wallet = null; st.orders = null; closeM(); paint(); toast(tt('انتهت الجلسة، سجّل الدخول من جديد'), true); });
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-a]'); if (b && H[b.dataset.a]) H[b.dataset.a](b, e); });
-let qt; document.addEventListener('input', (e) => { if (e.target.id === 'sq') { st.shop.q = e.target.value; clearTimeout(qt); qt = setTimeout(loadCats, 450); } });
+let qt; document.addEventListener('input', (e) => { if (e.target.id === 'ta') { const h = $('#tah'), v = Number(e.target.value); if (h) h.textContent = v > 0 && (RT.wallet || RT.default) ? '≈ ' + mny(v, 'wallet') : ''; } if (e.target.id === 'sq') { st.shop.q = e.target.value; clearTimeout(qt); qt = setTimeout(loadCats, 450); } });
+loadRates().then(() => { if (S) paint(); });
 (async () => { if (S) { await loadMe(); if (!st.me) setSession(null); } paint(); if (S) go(location.search.includes('topup=return') ? 'wallet' : 'shop'); })();

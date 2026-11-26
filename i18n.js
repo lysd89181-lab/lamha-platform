@@ -4,6 +4,7 @@ const LANG_NAME = { ar: 'عربي', en: 'EN' };
 const RTL = { ar: true };
 const DICT = {
   en: {
+    'فاتورة الطلب': 'Order invoice', 'إجمالي المنتجات': 'Items total', 'الشحن والرسوم': 'Shipping & fees', 'المدفوع (العربون)': 'Paid (deposit)', 'التاريخ': 'Date', 'لصق': 'Paste', 'الحافظة فارغة': 'Clipboard is empty', 'تعذّر اللصق، الصق الرابط يدوياً': 'Could not paste, paste the link manually',
     // v2 design
     'القائمة': 'Menu', 'ابحث عن منتج أو خدمة…': 'Search for a product or service…', 'اشتراكات رقمية': 'Digital subscriptions', 'شحن الألعاب': 'Game top-up', 'خدمات أخرى': 'Other services', 'بطاقات دولية': 'International cards',
     'هذا القسم قريباً': 'This section is coming soon', 'منتجات مميزة': 'Featured products', 'جميع التصنيفات': 'All categories', 'عرض العروض': 'View offers', 'تفاصيل الطلب': 'Order details', 'أدخل رابط سلة مشتريات SHEIN': 'Enter your SHEIN cart link',
