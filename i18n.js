@@ -5,6 +5,11 @@ const RTL = { ar: true };
 const DICT = {
   en: {
     'فاتورة الطلب': 'Order invoice', 'إجمالي المنتجات': 'Items total', 'الشحن والرسوم': 'Shipping & fees', 'المدفوع (العربون)': 'Paid (deposit)', 'التاريخ': 'Date', 'لصق': 'Paste', 'الحافظة فارغة': 'Clipboard is empty', 'تعذّر اللصق، الصق الرابط يدوياً': 'Could not paste, paste the link manually',
+    // v5 home/auth
+    'الأقسام': 'Sections', 'مبلغ الشحن (د.ل)': 'Top-up amount (LYD)', 'بيانات اللاعب': 'Player details', 'رصيد محفظتك': 'Your wallet balance', 'إغلاق': 'Close', 'السعر': 'Price',
+    // v5 catalog curation
+    'المتجر: ما يظهر للزبائن': 'Store: what customers see', '«مزامنة» تجلب كل تصنيفات المزود بدون حد. التصنيفات الجديدة تبدأ مخفية، وإنت تختار شن يظهر في المتجر.': 'Sync pulls every provider category with no cap. New categories start hidden and you choose what the store shows.', 'مزامنة من المزود': 'Sync from provider', 'تحميل القائمة': 'Load list', 'اضغط مزامنة لجلب كل التصنيفات': 'Press Sync to fetch every category',
+    'الظاهر للزبائن:': 'Visible to customers:', 'بحث في كل التصنيفات…': 'Search all categories…', 'إخفاء كل النتائج': 'Hide all results', 'القسم الرئيسي': 'Parent section', 'في المتجر': 'In store', 'ظاهر': 'Visible', 'مخفي': 'Hidden', 'لا يوجد ما يتغير': 'Nothing to change', 'لم يُجلب الكل: أعد المزامنة': 'Not everything was fetched: sync again',
     // v4 design
     'أهلاً بك': 'Welcome', 'رصيد المحفظة': 'Wallet balance', 'شحن الرصيد': 'Top up', 'السجل': 'History', 'هدايا': 'Gifts', 'ألعاب': 'Games', 'المزيد': 'More', 'اشحن محفظتك بخطوة وحدة': 'Top up your wallet in one step', 'أضف رصيد عبر Ezone Pay واشترِ بنقرة': 'Add balance via Ezone Pay and buy in one tap', 'ابدأ': 'Start',
     'المتجر': 'Store', 'بطاقات': 'Cards', 'شحن ألعاب': 'Game top-up', 'الرابط': 'Link', 'التأكيد': 'Confirm', 'اليوم': 'Today', 'أمس': 'Yesterday', 'تم الدفع': 'Paid', 'قيد التنفيذ': 'In progress', 'عرض الكل': 'View all',
@@ -78,7 +83,7 @@ const DICT = {
 const RULES = {
   en: [
     [/^طلب #(\d+)$/, 'Order #$1'], [/^طلب SHEIN #(\d+)$/, 'SHEIN order #$1'], [/^طلب #(\d+) — (.*)$/, 'Order #$1 — $2'], [/^متوفر: (\d+)$/, 'Available: $1'], [/^يُعرض (\d+) من (\d+)\. استعمل البحث للوصول لباقي التصنيفات\.$/, 'Showing $1 of $2. Use search to find other categories.'],
-    [/^وفّر (.+) \((.*)%\)$/, 'Save $1 ($2%)'], [/^(.*) · رصيد بعد: (.*)$/, '$1 · Balance after: $2'], [/^العملة التي أعادتها SHEIN: (.*) · الأسعار المعتمدة بالدولار فقط · الكميات يحددها العميل$/, 'Currency returned by SHEIN: $1 · Prices used are USD only · You choose the quantities'],
+    [/^وفّر (.+) \((.*)%\)$/, 'Save $1 ($2%)'], [/^تمت المزامنة: (\d+) من (\d+) \(جديد: (\d+)\)(.*)$/, 'Synced: $1 of $2 (new: $3)$4'], [/^الظاهر للزبائن: (\d+) من (\d+)$/, 'Visible to customers: $1 of $2'], [/^إظهار كل النتائج \((\d+)\)$/, 'Show all results ($1)'], [/^إظهار (\d+) تصنيف؟$/, 'Show $1 categories?'], [/^إخفاء (\d+) تصنيف؟$/, 'Hide $1 categories?'], [/^(.*) · رصيد بعد: (.*)$/, '$1 · Balance after: $2'], [/^العملة التي أعادتها SHEIN: (.*) · الأسعار المعتمدة بالدولار فقط · الكميات يحددها العميل$/, 'Currency returned by SHEIN: $1 · Prices used are USD only · You choose the quantities'],
     [/^تم استلام العربون\. طلب #(\d+)$/, 'Deposit received. Order #$1'], [/^اكتب الشكوى أدناه \(طلب #(\d+)\)$/, 'Write your complaint below (order #$1)'], [/^تعذّر التنفيذ: (.*)$/, 'Action failed: $1'],
     [/^التصنيفات \((\d+)\)$/, 'Categories ($1)'], [/^عرض المزيد \((\d+)\)$/, 'Show more ($1)'], [/^العروض \((\d+)\)(\s·)?$/, 'Offers ($1)$2'],
     [/^[a-z_]+: .+$/, (k) => k.split(' | ').map((p) => p.replace(/^([a-z_]+: )(.*)$/, (_m, a, b) => a + trText(b))).join(' | ')], // "service: error text" notes

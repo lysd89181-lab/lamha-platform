@@ -1,5 +1,5 @@
 const A = { me: null, tab: 'stats', data: null, err: '' };
-const PC = { service: 'all', q: '', f: '', show: 40, catId: '', offSrv: '', cats: [], stats: [], offers: [], rules: [], loading: false, err: '' };
+const PC = { service: 'all', q: '', f: '', show: 40, catId: '', offSrv: '', cats: [], stats: [], offers: [], rules: [], loading: false, err: '', shop: { service: 'top_ups', items: [], f: '', show: 60, loading: false, msg: '' } };
 const TABS = [
   ['stats', 'الإحصائيات', 'orders'],
   ['orders', 'الطلبات', 'orders'],
@@ -42,10 +42,26 @@ function rulesPanel() {
   return `<div class="box"><div class="sec" style="margin-top:0">نسب الربح لكل الخدمات</div><div class="mut" style="margin-bottom:8px">القاعدة العامة تشمل كل المزودين والخدمات. قاعدة الخدمة تتغلب عليها، وقاعدة المنتج تتغلب على الاثنتين (لا تُجمع النسب).</div>
     <div class="tw"><table><thead><tr><th>النطاق</th><th>ربح %</th><th>ربح ثابت</th><th></th></tr></thead><tbody>${row('global', '', 'عام (كل الخدمات)', 0)}${SVC_LIST.map(([k, l], n) => row('service', k, l, n + 1)).join('')}</tbody></table></div></div>`;
 }
+function shopPanel() {
+  const S2 = PC.shop; const q = S2.f.trim().toLowerCase(); const all = q ? S2.items.filter((c) => (c.id + ' ' + c.name).toLowerCase().includes(q)) : S2.items; const list = all.slice(0, S2.show); const vis = S2.items.filter((c) => c.visible).length;
+  const byId = new Map(S2.items.map((c) => [c.id, c.name]));
+  return `<div class="box"><div class="sec" style="margin-top:0">المتجر: ما يظهر للزبائن</div>
+    <div class="mut" style="margin-bottom:8px">«مزامنة» تجلب كل تصنيفات المزود بدون حد. التصنيفات الجديدة تبدأ مخفية، وإنت تختار شن يظهر في المتجر.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end"><label class="fld" style="flex:1;min-width:160px;margin:0"><span>الخدمة</span><select id="cs_srv">${SVC_LIST.map(([k, l]) => `<option value="${k}" ${S2.service === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label><button class="btn" data-a="cs_sync">مزامنة من المزود</button><button class="btn o" data-a="cs_load">تحميل القائمة</button></div>
+    ${S2.msg ? `<div class="note" style="margin-top:10px">${esc(S2.msg)}</div>` : ''}
+    ${S2.loading ? '<div class="empty">جارٍ التحميل…</div>' : !S2.items.length ? '<div class="empty">اضغط مزامنة لجلب كل التصنيفات</div>' : `
+      <div class="mut" style="margin:10px 0 6px">الظاهر للزبائن: ${vis} من ${S2.items.length}</div>
+      <div class="pcbar"><input id="cs_f" value="${esc(S2.f)}" placeholder="بحث في كل التصنيفات…" dir="ltr"><span class="mut">${all.length}</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"><button class="btn s" data-a="cs_bulk" data-v="1">إظهار كل النتائج (${all.length})</button><button class="btn s o" data-a="cs_bulk" data-v="0">إخفاء كل النتائج</button></div>
+      <div class="tw"><table><thead><tr><th>الاسم</th><th>ID</th><th>القسم الرئيسي</th><th>في المتجر</th></tr></thead><tbody>
+      ${list.map((c) => `<tr><td data-l="الاسم" dir="auto">${esc(c.name)}</td><td data-l="ID" dir="ltr">${esc(c.id)}</td><td data-l="القسم الرئيسي" dir="auto">${c.parent ? esc(byId.get(c.parent) || c.parent) : '—'}</td><td data-l="في المتجر"><button class="btn s ${c.visible ? '' : 'o'}" data-a="cs_vis" data-id="${esc(c.id)}" data-v="${c.visible ? 0 : 1}">${c.visible ? 'ظاهر' : 'مخفي'}</button></td></tr>`).join('')}
+      </tbody></table></div>${all.length > list.length ? `<button class="btn o w" style="margin-top:8px" data-a="cs_more">عرض المزيد (${all.length - list.length})</button>` : ''}`}
+  </div>`;
+}
 function catalogTab() {
   const opts = [['all', 'كل الخدمات (كل المزودين)'], ...SVC_LIST].map(([k, l]) => `<option value="${k}" ${PC.service === k ? 'selected' : ''}>${l}</option>`).join('');
   const tag = (s) => (s === 'product' ? 'قاعدة منتج' : s === 'service' ? 'قاعدة خدمة' : s === 'global' ? 'قاعدة عامة' : 'بدون ربح');
-  return rulesPanel() + `
+  return shopPanel() + rulesPanel() + `
     <div class="box">
       <div class="sec" style="margin-top:0">جلب الخدمات والعروض من المزود</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
@@ -130,6 +146,7 @@ async function load() {
 const act = (b, fn) => guard(b, async () => { await fn(); toast('تم'); load(); });
 const post = (p, body) => api(p, { method: 'POST', body });
 
+async function csLoad(srv) { const S2 = PC.shop; S2.service = srv; S2.loading = true; S2.show = 60; paint(); try { S2.items = (await api('/admin/catalog?' + new URLSearchParams({ service: srv }))).items || []; } catch (e) { S2.msg = fmtErr(e); S2.items = []; } S2.loading = false; paint(); }
 async function pcLoadRules() { try { PC.rules = (await api('/admin/list/pricing')) || []; } catch (e) { PC.err = fmtErr(e); } paint(); }
 async function pcLoadOffers() {
   PC.err = ''; PC.loading = true; paint();
@@ -161,6 +178,22 @@ const H = {
     PC.loading = false; paint();
   },
   pc_more: () => { PC.show += 60; paint(); },
+  cs_more: () => { PC.shop.show += 100; paint(); },
+  cs_load: async () => { await csLoad($('#cs_srv')?.value || PC.shop.service); },
+  cs_sync: (b) => guard(b, async () => {
+    const srv = $('#cs_srv')?.value || PC.shop.service; PC.shop.service = srv; PC.shop.msg = ''; PC.shop.loading = true; paint();
+    try { const r = await api('/admin/catalog/sync', { method: 'POST', body: { service: srv } }); PC.shop.msg = `تمت المزامنة: ${r.fetched} من ${r.total} (جديد: ${r.added})${r.complete ? '' : ' — ' + tt('لم يُجلب الكل: أعد المزامنة')}`; }
+    catch (e) { PC.shop.msg = fmtErr(e); }
+    await csLoad(srv);
+  }),
+  cs_vis: (b) => guard(b, async () => { const v = b.dataset.v === '1'; await api('/admin/catalog/visible', { method: 'POST', body: { service: PC.shop.service, ids: [b.dataset.id], visible: v } }); const c = PC.shop.items.find((x) => x.id === b.dataset.id); if (c) c.visible = v; paint(); }),
+  cs_bulk: (b) => guard(b, async () => {
+    const v = b.dataset.v === '1'; const q = PC.shop.f.trim().toLowerCase(); const all = (q ? PC.shop.items.filter((c) => (c.id + ' ' + c.name).toLowerCase().includes(q)) : PC.shop.items).filter((c) => c.visible !== v);
+    if (!all.length) return toast('لا يوجد ما يتغير');
+    if (!confirm(tt(`${v ? 'إظهار' : 'إخفاء'} ${all.length} تصنيف؟`))) return;
+    for (let i = 0; i < all.length; i += 500) await api('/admin/catalog/visible', { method: 'POST', body: { service: PC.shop.service, ids: all.slice(i, i + 500).map((c) => c.id), visible: v } });
+    for (const c of all) c.visible = v; paint();
+  }),
   pc_offers: async (b) => { PC.catId = b.dataset.id; PC.offSrv = b.dataset.srv; await pcLoadOffers(); },
   pc_rule: (b) => guard(b, async () => {
     const i = b.dataset.i; const percent = $(`#rp_${i}`)?.value.trim(), fixed_usd = $(`#rf_${i}`)?.value.trim(); const num = /^\d{1,5}(\.\d{1,2})?$/;
@@ -199,7 +232,7 @@ const H = {
 
 document.addEventListener('lamha:lang', () => { closeM(); paint(); });
 document.addEventListener('lamha:expired', () => { A.me = null; closeM(); paint(); toast(tt('انتهت الجلسة، سجّل الدخول من جديد'), true); });
-document.addEventListener('input', (e) => { if (e.target.id !== 'pc_f') return; const pos = e.target.selectionStart; PC.f = e.target.value; PC.show = 40; paint(); const el = $('#pc_f'); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch { /* ignore */ } } });
+document.addEventListener('input', (e) => { if (e.target.id === 'cs_f') { const pos = e.target.selectionStart; PC.shop.f = e.target.value; PC.shop.show = 60; paint(); const el = $('#cs_f'); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch { /* ignore */ } } return; } if (e.target.id !== 'pc_f') return; const pos = e.target.selectionStart; PC.f = e.target.value; PC.show = 40; paint(); const el = $('#pc_f'); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch { /* ignore */ } } });
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-a]'); if (b && H[b.dataset.a]) H[b.dataset.a](b, e); });
 
 async function boot(fromLogin = false) {

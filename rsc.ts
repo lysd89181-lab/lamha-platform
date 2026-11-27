@@ -72,7 +72,8 @@ export function orderRequest(service: string, i: any): { path: string; body: any
 }
 
 // ---- field map (owner-supplied; never guessed) ----
-export type Mapping = { list?: string; id: string; price: string; name?: string; stock?: string; min?: string; max?: string; order_number: string; cat?: { list?: string; id: string; name: string; image?: string }; fields?: { list?: string; key?: string; label?: string; required?: string } };
+// cat.parent / cat.children are OPTIONAL and owner-supplied after seeing a real hierarchical response (never guessed).
+export type Mapping = { list?: string; id: string; price: string; name?: string; stock?: string; min?: string; max?: string; order_number: string; cat?: { list?: string; id: string; name: string; image?: string; parent?: string; children?: string }; fields?: { list?: string; key?: string; label?: string; required?: string } };
 // Built-in defaults come ONLY from real responses the owner supplied (GET /gift-cards/categories and GET /orders samples).
 // Offer price (and the offer-list shape) is still unknown for every service => ordering stays closed until it is set via RESELLCODES_FIELD_MAP.
 const CAT = { list: "data", id: "category_id", name: "name", image: "image" };

@@ -181,3 +181,20 @@ svg.i{stroke-width:1.8}
 .rd{height:52px;font-size:16px;font-weight:800;margin:4px 0 12px}
 
 @media (max-width:380px){.dockw{padding-inline:8px}.dock{padding:0 6px}.dock .dk{min-width:40px;height:44px}.dock .dk.on{padding:0 12px;gap:6px;font-size:13px}.dock .fab{width:54px;height:54px;margin-top:-22px}.bal{margin-inline:12px;padding:14px}.bt h2{font-size:28px}.qa{gap:6px}.qa span{width:54px;height:54px}}
+
+/* ===== LAMHA v5: login, hierarchy, buy sheet, dock labels ===== */
+.authhero{background:linear-gradient(160deg,#0B172A,#16264a);color:#fff;text-align:center;padding:calc(40px + env(safe-area-inset-top,0px)) 24px 64px;border-radius:0 0 36px 36px}.authhero img{height:52px}.authhero p{margin-top:12px;opacity:.85;font-size:15px}
+.authcard{background:#fff;margin:-36px 16px 24px;border-radius:24px;padding:20px 18px;box-shadow:0 14px 34px rgba(11,23,42,.14);border:1px solid #E8EDF4}.authcard .fld{margin-bottom:12px}.authtt{font-size:20px;font-weight:800;margin-bottom:14px}.authlinks{display:flex;justify-content:center;margin-top:14px}.authlinks button{color:var(--mut);font-weight:700;font-size:14px}
+.seg.a2{margin:0 0 16px}.cta{margin-top:4px}
+.crumb{display:flex;align-items:center;gap:8px;margin:0 0 12px;color:var(--navy);font-weight:800;font-size:16px}.crumb svg.i{width:20px;height:20px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:4px;box-sizing:content-box}
+.qa button.on span{background:var(--navy);color:#fff;border-color:var(--navy)}.qa button.on{color:var(--navy)}.qa button.on span svg.i{stroke:#fff}.qa .sl{display:block}.qa button.on span .sl{color:#fff}
+.md{border-radius:28px 28px 0 0;padding:10px 20px calc(20px + env(safe-area-inset-bottom,0px))}.grab{display:block;width:44px;height:5px;border-radius:3px;background:#CBD5E1;margin:0 auto 14px}
+.bh2{display:flex;gap:14px;align-items:center;margin-bottom:16px}.bh2 .g{flex:1;min-width:0}.bh2 h3{margin:0;font-size:19px;line-height:1.35}.bh2 .art{width:60px;height:60px;border-radius:16px;object-fit:contain;background:#F1F4F9;padding:4px;flex:none;font-size:24px}.bh2 .bk{width:38px;height:38px;flex:none}
+.lb{font-weight:800;margin-bottom:8px}
+.qr{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.stp{display:flex;align-items:center;gap:6px;background:#F1F4F9;border-radius:14px;padding:4px}.stp button{width:38px;height:38px;border-radius:11px;background:#fff;font-weight:800;font-size:20px;color:var(--navy)}.stp input{width:52px;text-align:center;border:0;background:none;font-weight:800;font-size:16px;outline:0}
+.sum{display:flex;justify-content:space-between;align-items:flex-end;background:#F4F6FA;border-radius:18px;padding:14px 16px;margin-bottom:12px}.sum small{color:var(--mut);font-size:12px;display:block}.sum h4{font-size:26px;font-weight:800;direction:ltr;text-align:start}.rem{text-align:end}.rem b{font-size:14px}
+/* dock: tiny labels under inactive icons (hidden on very small phones) */
+.dock .dk:not(.on){flex-direction:column;gap:2px;width:54px;height:56px;border-radius:16px;min-width:0}.dock .dk:not(.on) b{display:block;font-size:11px;font-weight:600;line-height:1}
+@media (max-width:379px){.dock .dk:not(.on){width:40px;height:44px}.dock .dk:not(.on) b{display:none}}
+.dock .dk.on{flex-direction:row;height:48px;width:auto}
+.pp b{font-size:13px}

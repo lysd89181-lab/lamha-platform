@@ -154,6 +154,9 @@ const LISTS: Record<string, { perm: string; sel: string; order: string }> = {
 export async function adminExtra(e: Env, u: User, req: Request, path: string): Promise<Response | null> {
   let m: RegExpMatchArray | null;
   if (path === "admin/provider/categories" && req.method === "GET") { await requireAdmin(e, u, "pricing"); return adminProviderCategories(e, new URL(req.url)); }
+  if (path === "admin/catalog/sync" && req.method === "POST") { await requireAdmin(e, u, "pricing"); const b: any = await req.json().catch(() => ({})); return adminCatalogSync(e, u, String(b?.service || "")); }
+  if (path === "admin/catalog" && req.method === "GET") { await requireAdmin(e, u, "pricing"); return adminCatalogList(e, new URL(req.url)); }
+  if (path === "admin/catalog/visible" && req.method === "POST") { await requireAdmin(e, u, "pricing"); return adminCatalogVisible(e, u, await req.json().catch(() => ({}))); }
   if (path === "admin/provider/offers" && req.method === "GET") { await requireAdmin(e, u, "pricing"); return adminProviderOffers(e, new URL(req.url)); }
   if (path === "admin/pricing/bulk" && req.method === "POST") { // same profit for many products at once (e.g. every offer of one category)
     await requireAdmin(e, u, "pricing"); const b: any = await req.json(); const num = /^\d{1,5}(\.\d{1,2})?$/;
@@ -236,7 +239,7 @@ const SHOP: Record<string, { cats: string; offers: (id: string) => string }> = {
 };
 async function enabled(e: Env, service: string) { const [s] = await sb<any[]>(e, `services?key=eq.${service}&select=enabled,requires_verification`); if (!s?.enabled) throw new HttpError(403, "service_disabled"); return s; }
 
-export async function shopCategories(e: Env, url: URL, f: typeof fetch = fetch) {
+async function shopCategoriesLegacy(e: Env, url: URL, f: typeof fetch = fetch) { // live provider page (first page only): used only until shop_categories (005) exists
   const service = url.searchParams.get("service") || "";
   const sh = SHOP[service];
   if (!sh) throw new HttpError(400, "bad_service");
@@ -275,6 +278,20 @@ export async function shopCategories(e: Env, url: URL, f: typeof fetch = fetch) 
   });
 }
 
+// Customer catalog = ONLY what the admin chose to show (shop_categories.visible), complete (no 60/200 cap), with optional parent/child nesting.
+export async function shopCategories(e: Env, url: URL, f: typeof fetch = fetch) {
+  const service = url.searchParams.get("service") || "";
+  if (!SHOP[service]) throw new HttpError(400, "bad_service");
+  try { await enabled(e, service); } catch (x) { if (x instanceof HttpError && (x.status === 403 || x.status === 501)) throw x; return json({ total: 0, items: [], provider_pending: true }); }
+  const q = (url.searchParams.get("q") || "").replace(/[^\p{L}\p{N} ._-]/gu, "").trim().slice(0, 60);
+  let rows: any;
+  try { rows = await sb<any[]>(e, `shop_categories?service=eq.${service}&visible=eq.true${q ? `&name=ilike.*${encodeURIComponent(q)}*` : ""}&select=category_id,name,image,parent_id&order=sort.asc,name.asc&limit=5000`); } catch { rows = null; }
+  if (!Array.isArray(rows)) return shopCategoriesLegacy(e, url, f); // table not created yet: keep the old behaviour instead of breaking the store
+  const parents = new Set(rows.map((r: any) => r.parent_id).filter(Boolean));
+  const ids = new Set(rows.map((r: any) => r.category_id));
+  return json({ total: rows.length, curated: true, items: rows.map((r: any) => ({ id: String(r.category_id), name: String(r.name), image: r.image || null, parent: r.parent_id && ids.has(r.parent_id) ? String(r.parent_id) : null, has_children: parents.has(r.category_id) })) });
+}
+
 export async function shopOffers(e: Env, url: URL, f: typeof fetch = fetch) {
   const service = url.searchParams.get("service") || "";
   const id = url.searchParams.get("id") || "";
@@ -297,7 +314,7 @@ export async function shopOffers(e: Env, url: URL, f: typeof fetch = fetch) {
     return json({ offers: [], fields: [], empty: true, provider_pending: true });
   }
 
-  const rows = listOf(j, m.list).slice(0, 60).filter((o: any) => o && o[m.id] != null && o[m.price] != null);
+  const rows = listOf(j, m.list).slice(0, 400).filter((o: any) => o && o[m.id] != null && o[m.price] != null);
   const out = await Promise.all(rows.map(async (o: any) => {
     const oid = String(o[m.id]);
     let cost: string;
@@ -355,12 +372,63 @@ export async function adminProviderCategories(e: Env, url: URL, f: typeof fetch 
   const items = [...seen.values()]; const complete = !stopped && (total == null || items.length >= total);
   return json({ total: total ?? items.length, items, complete, pages });
 }
+// ---- admin catalog curation: pull EVERY provider category into shop_categories, then the admin chooses what the store shows ----
+async function providerAllCats(e: Env, service: string, f: typeof fetch = fetch) {
+  const sh = SHOP[service]; if (!sh) throw new HttpError(400, "bad_service");
+  let c: ReturnType<typeof catMap>; try { c = catMap(e, service); } catch (x) { throw rscToHttp(x); }
+  const MAX_PAGES = 40; const seen = new Map<string, { id: string; name: string; image: string | null; parent: string | null }>();
+  let cursor: string | undefined; let total: number | null = null; let stopped = false; let pages = 0;
+  const add = (arr: any[], parent: string | null) => {
+    for (const x of arr) {
+      if (!x || typeof x[c.id] !== "string" || !x[c.id]) continue; const id = String(x[c.id]);
+      const par = parent ?? (c.parent && x[c.parent] != null && x[c.parent] !== "" ? String(x[c.parent]) : null);
+      seen.set(id, { id, name: String(x[c.name] ?? id), image: c.image && typeof x[c.image] === "string" && x[c.image].startsWith("/api/media/") ? "https://resell.codes" + x[c.image] : null, parent: par });
+      if (c.children && Array.isArray(x[c.children])) add(x[c.children], id);
+    }
+  };
+  for (let p = 0; p < MAX_PAGES; p++) {
+    let j: any; try { j = await rscCached(e, sh.cats, { limit: 100, cursor }, 300_000, f); } catch (x) { if (p === 0) throw rscToHttp(x); stopped = true; break; }
+    pages++; const raw = listOf(j, c.list); const before = seen.size; add(raw, null);
+    if (raw.length && seen.size === before && p === 0) throw new HttpError(502, "unexpected_provider_shape");
+    if (typeof j?.total === "number") total = j.total;
+    if (j?.next_cursor != null && String(j.next_cursor) !== cursor) { cursor = String(j.next_cursor); continue; }
+    if (j?.has_more === true) { stopped = true; break; }
+    if (total != null && seen.size < total && raw.length) {
+      if (p > 0 && seen.size === before) { stopped = true; break; } // provider ignored the cursor: report honestly instead of looping
+      const last = raw[raw.length - 1]; cursor = String(last?.[c.id]); continue;
+    }
+    break;
+  }
+  const items = [...seen.values()];
+  return { items, total: total ?? items.length, complete: !stopped && (total == null || items.length >= total), pages };
+}
+export async function adminCatalogSync(e: Env, u: User, service: string, f: typeof fetch = fetch) {
+  const all = await providerAllCats(e, service, f);
+  const had = new Set((await sb<any[]>(e, `shop_categories?service=eq.${service}&select=category_id&limit=50000`)).map(r => r.category_id));
+  const now = new Date().toISOString(); const rows = all.items.map(c => ({ service, category_id: c.id, name: c.name, image: c.image, parent_id: c.parent, updated_at: now })); // visible/sort omitted: existing choices are preserved, new rows start hidden
+  for (let i = 0; i < rows.length; i += 500) await sb(e, "shop_categories?on_conflict=service,category_id", { method: "POST", prefer: "resolution=merge-duplicates", body: JSON.stringify(rows.slice(i, i + 500)) });
+  const added = all.items.filter(c => !had.has(c.id)).length;
+  await audit(e, u.id, "catalog.sync", service, { fetched: all.items.length, total: all.total, added, complete: all.complete });
+  return json({ fetched: all.items.length, total: all.total, added, complete: all.complete, pages: all.pages });
+}
+export async function adminCatalogList(e: Env, url: URL) {
+  const service = url.searchParams.get("service") || ""; if (!SHOP[service]) throw new HttpError(400, "bad_service");
+  const rows = await sb<any[]>(e, `shop_categories?service=eq.${service}&select=category_id,name,parent_id,visible,sort&order=name.asc&limit=20000`);
+  return json({ items: rows.map(r => ({ id: String(r.category_id), name: String(r.name), parent: r.parent_id || null, visible: !!r.visible, sort: Number(r.sort) || 0 })) });
+}
+export async function adminCatalogVisible(e: Env, u: User, b: any) {
+  const service = String(b?.service || ""); const ids: string[] = Array.isArray(b?.ids) ? [...new Set<string>(b.ids.map(String))] : []; const visible = b?.visible === true;
+  if (!SHOP[service] || !ids.length || ids.length > 500 || !ids.every(i => /^[\w-]{1,100}$/.test(i)) || typeof b?.visible !== "boolean") throw new HttpError(400, "bad_input");
+  await sb(e, `shop_categories?service=eq.${service}&category_id=in.(${ids.map(encodeURIComponent).join(",")})`, { method: "PATCH", body: JSON.stringify({ visible }) });
+  await audit(e, u.id, visible ? "catalog.show" : "catalog.hide", service, { count: ids.length, sample: ids.slice(0, 5) });
+  return json({ ok: true, count: ids.length });
+}
 export async function adminProviderOffers(e: Env, url: URL, f: typeof fetch = fetch) {
   const service = url.searchParams.get("service") || ""; const id = url.searchParams.get("id") || ""; const sh = SHOP[service];
   if (!sh || !/^[\w-]{1,100}$/.test(id)) throw new HttpError(400, "bad_input");
   let m: ReturnType<typeof fieldMap>; try { m = fieldMap(e, service); } catch (x) { throw rscToHttp(x); }
   let j: any; try { j = await rscCached(e, sh.offers(id), {}, 15_000, f); } catch (x) { throw rscToHttp(x); }
-  const rules = await adminProviderRules(e); const rows = listOf(j, m.list).slice(0, 80).filter((o: any) => o && o[m.id] != null && o[m.price] != null);
+  const rules = await adminProviderRules(e); const rows = listOf(j, m.list).slice(0, 400).filter((o: any) => o && o[m.id] != null && o[m.price] != null);
   const offers = (await Promise.all(rows.map(async (o: any) => {
     const oid = String(o[m.id]); let cost: string; try { cost = parseUsd4(o[m.price]); } catch { return null; }
     const pid = `${service}:${oid}`; const price = Number(await rpc(e, "sell_price", { p_cost: cost, p_service: service, p_product: pid })); // authoritative price (same function the checkout uses)
